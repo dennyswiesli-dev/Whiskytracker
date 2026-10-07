@@ -1,0 +1,56 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function isFriend(a, b) {
+      return exists(/databases/$(database)/documents/friends/$(a + '_' + b))
+          || exists(/databases/$(database)/documents/friends/$(b + '_' + a));
+    }
+    function otherOf(m) { return m[0] == request.auth.uid ? m[1] : m[0]; }
+
+    // Private Daten: nur der Besitzer (Flaschen, Degustationen, Einstellungen, Preise)
+    match /users/{uid} {
+      allow read, write: if signedIn() && request.auth.uid == uid;
+    }
+    match /users/{uid}/{document=**} {
+      allow read, write: if signedIn() && request.auth.uid == uid;
+    }
+
+    // Öffentliches Profil (Name, Freundescode) + Freigabekopie der Sammlung ohne Preise
+    match /profiles/{uid} {
+      allow read: if signedIn();
+      allow write: if signedIn() && request.auth.uid == uid;
+
+      match /shared/{bid} {
+        allow write: if signedIn() && request.auth.uid == uid;
+        allow read: if signedIn() && (
+          request.auth.uid == uid ||
+          (get(/databases/$(database)/documents/profiles/$(uid)).data.share == true
+            && isFriend(request.auth.uid, uid))
+        );
+      }
+    }
+
+    // Freundschaftsanfragen: Dokument-ID = absender_empfänger
+    match /requests/{rid} {
+      allow create: if signedIn()
+        && request.resource.data.from == request.auth.uid
+        && request.resource.data.to is string
+        && request.resource.data.to != request.auth.uid
+        && rid == request.auth.uid + '_' + request.resource.data.to;
+      allow read, delete: if signedIn()
+        && (resource.data.from == request.auth.uid || resource.data.to == request.auth.uid);
+    }
+
+    // Bestehende Freundschaften: entstehen nur, wenn die andere Person vorher angefragt hat
+    match /friends/{pid} {
+      allow read, delete: if signedIn() && request.auth.uid in resource.data.members;
+      allow create: if signedIn()
+        && request.resource.data.members.size() == 2
+        && request.resource.data.members[0] != request.resource.data.members[1]
+        && request.auth.uid in request.resource.data.members
+        && exists(/databases/$(database)/documents/requests/$(otherOf(request.resource.data.members) + '_' + request.auth.uid));
+    }
+  }
+}

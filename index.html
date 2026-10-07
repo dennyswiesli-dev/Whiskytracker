@@ -1,0 +1,734 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Whisky Vault</title>
+<meta name="theme-color" content="#12201c">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🥃%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;700&family=Young+Serif&display=swap" rel="stylesheet">
+<style>
+:root{
+  --glass:#12201c;      /* Flaschenglas */
+  --glass2:#1a2d27;     /* Karten */
+  --glass3:#24403a;     /* Felder / Hover */
+  --line:#2f4f47;
+  --paper:#ece3cf;      /* Etikett */
+  --mute:#9db3a8;
+  --amber:#e3a33f;      /* Destillat */
+  --amber2:#f2c26b;
+  --peat:#8a6a43;
+  --good:#8fd19e;
+  --bad:#f0907a;
+  --r:14px;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--glass);color:var(--paper);font:400 16px/1.45 Figtree,system-ui,sans-serif;padding-bottom:env(safe-area-inset-bottom)}
+h1,h2,h3{font-family:'Young Serif',Georgia,serif;font-weight:400;margin:0}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+.top{position:sticky;top:0;z-index:5;background:rgba(18,32,28,.94);backdrop-filter:blur(8px);border-bottom:1px solid var(--line);padding:calc(10px + env(safe-area-inset-top)) 16px 0}
+.top h1{font-size:1.5rem;letter-spacing:.2px}
+#chip{max-width:45%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#tabs{display:flex;gap:4px;margin-top:8px;overflow-x:auto;scrollbar-width:none}
+#tabs button{background:none;border:0;border-bottom:3px solid transparent;padding:10px 14px;color:var(--mute);cursor:pointer;white-space:nowrap;font-weight:500;position:relative}
+#tabs button.on{color:var(--amber2);border-color:var(--amber)}
+#tabs .dot{position:absolute;top:6px;right:4px;width:9px;height:9px;border-radius:50%;background:var(--amber)}
+main{max-width:1100px;margin:0 auto;padding:16px 16px 80px}
+.muted{color:var(--mute)} .sm{font-size:.85rem}
+.err{color:var(--bad)} .ok{color:var(--good)}
+.row{display:flex;gap:8px;align-items:center}
+.row.wrap{flex-wrap:wrap}
+.row.sb{justify-content:space-between}
+.btn{background:var(--glass3);border:1px solid var(--line);border-radius:10px;padding:9px 14px;cursor:pointer;white-space:nowrap}
+.btn:hover{border-color:var(--amber)}
+.btn.pri{background:var(--amber);color:#201508;border-color:var(--amber);font-weight:700}
+.btn.pri:hover{background:var(--amber2)}
+.btn.ghost{background:none}
+.btn.danger{color:var(--bad)}
+input,select,textarea{width:100%;background:var(--glass3);border:1px solid var(--line);border-radius:10px;padding:9px 11px}
+textarea{resize:vertical;min-height:70px}
+input[type=range]{padding:0;accent-color:var(--amber)}
+label{display:block;font-size:.85rem;color:var(--mute);margin:0 0 4px}
+.chk{display:flex;gap:10px;align-items:center;color:var(--paper);font-size:1rem;margin:0}
+.chk input{width:auto;accent-color:var(--amber)}
+.code{font:700 1.3rem/1 ui-monospace,Menlo,monospace;letter-spacing:2px;color:var(--amber2);background:var(--glass3);border:1px dashed var(--peat);border-radius:10px;padding:10px 14px}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom));background:var(--paper);color:#17201c;padding:10px 16px;border-radius:12px;z-index:50;max-width:90%;font-weight:500}
+
+.auth{max-width:420px;margin:24px auto;display:flex;flex-direction:column;gap:12px}
+.auth h2{font-size:1.8rem}
+.or{display:flex;align-items:center;gap:10px;color:var(--mute);font-size:.85rem}
+.or::before,.or::after{content:'';flex:1;height:1px;background:var(--line)}
+.btn.google{background:var(--paper);color:#1b1b1b;font-weight:700;border-color:var(--paper);display:flex;gap:10px;justify-content:center;align-items:center}
+.banner{background:var(--glass2);border:1px solid var(--amber);border-radius:var(--r);padding:12px 14px}
+
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:16px}
+.stat{background:var(--glass2);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px}
+.stat b{display:block;font:400 1.35rem 'Young Serif',Georgia,serif;color:var(--amber2)}
+.stat span{font-size:.8rem;color:var(--mute)}
+.tools{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center}
+.tools input[type=search],.tools input#q,.tools input#fq{flex:1 1 180px;width:auto}.tools select{flex:0 0 auto;width:auto}
+
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px}
+.card{background:var(--glass2);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;cursor:pointer;display:flex;flex-direction:column}
+.card:hover{border-color:var(--amber)}
+.pic{position:relative;aspect-ratio:4/3;background:#0e1916;display:grid;place-items:center;font-size:3rem}
+.pic img{width:100%;height:100%;object-fit:contain;padding:8px}
+.gauge{position:absolute;left:0;top:0;bottom:0;width:7px;background:#0a1210}
+.gauge i{position:absolute;left:0;right:0;bottom:0;background:linear-gradient(var(--amber2),var(--peat))}
+.score{position:absolute;right:8px;top:8px;min-width:42px;height:42px;border-radius:50%;display:grid;place-items:center;background:var(--glass);border:2px solid var(--c);font:400 1rem 'Young Serif',Georgia,serif}
+.cbody{padding:12px 14px 14px;display:flex;flex-direction:column;gap:4px;flex:1}
+.cbody h3{font-size:1.05rem;line-height:1.25}
+.cbody p{margin:0;font-size:.85rem}
+.mk{font-size:.85rem;margin-top:2px}
+.up{color:var(--good)}.down{color:var(--bad)}
+.empty{text-align:center;padding:48px 16px;color:var(--mute);border:1px dashed var(--line);border-radius:var(--r)}
+.empty b{display:block;font:400 1.2rem 'Young Serif',Georgia,serif;color:var(--paper);margin-bottom:6px}
+
+.list{display:flex;flex-direction:column;gap:10px}
+.item{display:flex;gap:12px;background:var(--glass2);border:1px solid var(--line);border-radius:var(--r);padding:10px;cursor:pointer;align-items:center}
+.item.static{cursor:default}
+.item:not(.static):hover{border-color:var(--amber)}
+.item .th{width:56px;height:70px;background:#0e1916;border-radius:8px;display:grid;place-items:center;font-size:1.6rem;flex:none;overflow:hidden}
+.item .th img{width:100%;height:100%;object-fit:contain}
+.item .mid{flex:1;min-width:0}
+.item .mid b{display:block;overflow:hidden;text-overflow:ellipsis}
+.avatar{width:44px;height:44px;border-radius:50%;background:var(--glass3);border:1px solid var(--peat);display:grid;place-items:center;font:400 1.2rem 'Young Serif',Georgia,serif;color:var(--amber2);flex:none}
+.rank{font:400 1.3rem 'Young Serif',Georgia,serif;color:var(--peat);width:28px;text-align:center;flex:none}
+.pill{display:inline-block;border-radius:99px;padding:2px 10px;font-size:.78rem;border:1px solid var(--line);color:var(--mute)}
+.pill.ja{color:var(--good);border-color:var(--good)}.pill.vielleicht{color:var(--amber2);border-color:var(--amber)}.pill.nein{color:var(--bad);border-color:var(--bad)}
+.bigscore{font:400 1.6rem 'Young Serif',Georgia,serif;min-width:48px;text-align:right}
+
+.modal{border:0;border-radius:18px;background:var(--glass);color:var(--paper);width:min(660px,calc(100% - 20px));max-height:94vh;padding:0;border:1px solid var(--line)}
+.modal::backdrop{background:rgba(4,10,8,.78)}
+.mbody{padding:18px;overflow:auto;max-height:92vh;display:flex;flex-direction:column;gap:14px}
+.mhead{display:flex;justify-content:space-between;align-items:center}
+.mhead h2{font-size:1.35rem}
+.x{background:none;border:0;font-size:1.3rem;cursor:pointer;color:var(--mute)}
+.box{background:var(--glass2);border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:8px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+@media(max-width:520px){.g3{grid-template-columns:1fr 1fr}}
+.imgrow{display:flex;gap:12px;align-items:center}
+.imgrow .pic{width:120px;aspect-ratio:3/4;border-radius:10px;overflow:hidden;font-size:2.4rem;flex:none}
+.stack{display:flex;flex-direction:column;gap:8px}
+.res{display:flex;gap:10px;align-items:center;text-align:left;background:var(--glass3);border:1px solid var(--line);border-radius:10px;padding:8px;cursor:pointer;width:100%}
+.res:hover{border-color:var(--amber)}
+.res img,.res .ph{width:42px;height:52px;object-fit:contain;background:#0e1916;border-radius:6px;display:grid;place-items:center;flex:none}
+.res small{display:block;color:var(--mute)}
+.results{display:flex;flex-direction:column;gap:6px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1px solid var(--line);background:none;border-radius:99px;padding:5px 12px;cursor:pointer;font-size:.88rem;color:var(--mute)}
+.chip.on{background:var(--amber);color:#201508;border-color:var(--amber);font-weight:700}
+.links{display:flex;flex-wrap:wrap;gap:6px}
+.links a{font-size:.85rem;color:var(--amber2);border:1px solid var(--line);border-radius:99px;padding:3px 10px;text-decoration:none}
+.links a:hover{border-color:var(--amber)}
+.seg{display:flex;gap:6px}.seg button{flex:1}
+.seg .on{background:var(--amber);color:#201508;border-color:var(--amber);font-weight:700}
+.range-val{font:400 1.2rem 'Young Serif',Georgia,serif;color:var(--amber2);min-width:64px;text-align:right}
+@media(prefers-reduced-motion:no-preference){.card,.item,.btn{transition:border-color .15s}}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="row sb"><h1>Whisky Vault</h1><span id="chip" class="muted sm"></span></div>
+  <nav id="tabs" hidden>
+    <button data-tab="sammlung">Sammlung</button>
+    <button data-tab="degustation">Degustation</button>
+    <button data-tab="kaufliste">Kaufliste</button>
+    <button data-tab="freunde">Freunde<i class="dot" id="frdot" hidden></i></button>
+    <button data-tab="konto">Konto</button>
+  </nav>
+</header>
+<main id="view"></main>
+<div class="toast" id="toast" hidden></div>
+
+<script type="module">
+import {initializeApp} from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js';
+import {getAuth,onAuthStateChanged,signInWithEmailAndPassword,createUserWithEmailAndPassword,GoogleAuthProvider,signInWithPopup,sendPasswordResetEmail,sendEmailVerification,updateProfile,signOut} from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js';
+import {initializeFirestore,persistentLocalCache,persistentMultipleTabManager,doc,getDoc,setDoc,deleteDoc,collection,onSnapshot,query,where,getDocs,writeBatch} from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js';
+
+/* =====================================================================
+   1) HIER DEINE FIREBASE-WERTE EINTRAGEN
+   Firebase-Konsole → Projekteinstellungen → Allgemein → Deine Apps → Web-App → Konfiguration
+   Diese Werte sind öffentlich gedacht. Geschützt sind die Daten durch die Regeln in firestore.rules.
+   ===================================================================== */
+const firebaseConfig={
+  apiKey:'DEIN_API_KEY',
+  authDomain:'DEIN_PROJEKT.firebaseapp.com',
+  projectId:'DEIN_PROJEKT',
+  storageBucket:'DEIN_PROJEKT.firebasestorage.app',
+  messagingSenderId:'DEINE_SENDER_ID',
+  appId:'DEINE_APP_ID'
+};
+const CONFIGURED=!String(firebaseConfig.apiKey).startsWith('DEIN_');
+let app,auth,db;
+if(CONFIGURED){
+  app=initializeApp(firebaseConfig);
+  auth=getAuth(app);auth.languageCode='de';
+  db=initializeFirestore(app,{localCache:persistentLocalCache({tabManager:persistentMultipleTabManager()}),ignoreUndefinedProperties:true});
+}
+
+/* ============ Helfer ============ */
+const $=(s,el=document)=>el.querySelector(s);
+const $$=(s,el=document)=>[...el.querySelectorAll(s)];
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+const num=v=>(v===''||v==null||isNaN(Number(String(v).replace(',','.'))))?null:Number(String(v).replace(',','.'));
+const today=()=>new Date().toISOString().slice(0,10);
+const fmtDate=d=>d?new Date(d).toLocaleDateString('de-CH'):'';
+const money=n=>(n==null||n===''||isNaN(n))?'–':new Intl.NumberFormat('de-CH',{style:'currency',currency:D.settings.currency}).format(n);
+const scoreColor=s=>`hsl(${Math.max(0,Math.min(120,(s-50)*2.4))} 60% 55%)`;
+const TAGS=['Rauchig','Torfig','Fruchtig','Süss','Würzig','Sherry','Vanille','Eiche','Maritim','Malzig','Floral','Cremig','Scharf','Bitter'];
+function toast(m){const t=$('#toast');t.textContent=m;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>t.hidden=true,4500)}
+const fail=e=>{console.error(e);toast('Speichern fehlgeschlagen: '+(e.code||e.message))};
+
+/* ============ Zustand ============ */
+const blankD=()=>({bottles:[],sessions:[],tastings:[],settings:{currency:'CHF'}});
+const blankFR=()=>({friends:[],incoming:[],outgoing:[],profiles:{}});
+let ME=null,PROFILE=null,D=blankD(),FR=blankFR(),LEGACY=null,unsubs=[],PENDING_NAME=null;
+let UI={tab:'sammlung',sort:'name',q:'',sessionId:null,kaufMode:'kauf',loading:true,friend:null,authMode:'login'};
+let raf;const sched=()=>{cancelAnimationFrame(raf);raf=requestAnimationFrame(render)};
+
+/* ============ Datenzugriff (Firestore) ============ */
+const PUB=b=>({id:b.id,name:b.name,distillery:b.distillery||'',age:b.age??null,abv:b.abv??null,volume:b.volume??null,barcode:b.barcode||'',image:b.image||'',fill:b.fill??100,rating:b.rating??null,notes:b.notes||'',added:b.added||Date.now()}); // ohne Preise!
+function upsert(kind,o){const a=D[kind],i=a.findIndex(x=>x.id===o.id);if(i>=0)a[i]=o;else a.push(o)}
+function put(kind,o){
+  upsert(kind,o);const u=ME.uid;
+  setDoc(doc(db,'users',u,kind,o.id),o).catch(fail);
+  if(kind==='bottles')setDoc(doc(db,'profiles',u,'shared',o.id),PUB(o)).catch(fail);
+  sched();
+}
+function del(kind,id){
+  D[kind]=D[kind].filter(x=>x.id!==id);const u=ME.uid;
+  deleteDoc(doc(db,'users',u,kind,id)).catch(fail);
+  if(kind==='bottles')deleteDoc(doc(db,'profiles',u,'shared',id)).catch(fail);
+  sched();
+}
+function saveSettings(){setDoc(doc(db,'users',ME.uid),{settings:D.settings},{merge:true}).catch(fail)}
+async function commitOps(ops){for(let i=0;i<ops.length;i+=400){const wb=writeBatch(db);ops.slice(i,i+400).forEach(([k,r,d])=>k==='set'?wb.set(r,d):wb.delete(r));await wb.commit()}}
+async function bulkSet({bottles=[],sessions=[],tastings=[]}){
+  const u=ME.uid,ops=[];
+  bottles.forEach(b=>{b.id=b.id||uid();ops.push(['set',doc(db,'users',u,'bottles',b.id),b],['set',doc(db,'profiles',u,'shared',b.id),PUB(b)])});
+  sessions.forEach(s=>{s.id=s.id||uid();ops.push(['set',doc(db,'users',u,'sessions',s.id),s])});
+  tastings.forEach(t=>{t.id=t.id||uid();ops.push(['set',doc(db,'users',u,'tastings',t.id),t])});
+  await commitOps(ops);
+}
+async function wipeAll(){
+  const u=ME.uid,ops=[];
+  for(const k of['bottles','sessions','tastings'])(await getDocs(collection(db,'users',u,k))).forEach(d=>ops.push(['del',d.ref]));
+  (await getDocs(collection(db,'profiles',u,'shared'))).forEach(d=>ops.push(['del',d.ref]));
+  await commitOps(ops);
+}
+function genCode(){const A='ABCDEFGHJKMNPQRSTUVWXYZ23456789';let c='';const r=crypto.getRandomValues(new Uint8Array(8));for(const x of r)c+=A[x%A.length];return c}
+const fmtCode=c=>c?c.slice(0,4)+'-'+c.slice(4):'';
+
+async function ensureProfile(){
+  try{
+    const ref=doc(db,'profiles',ME.uid),s=await getDoc(ref);
+    if(!s.exists()||!s.data().code){
+      await setDoc(ref,{name:PENDING_NAME||ME.displayName||(ME.email||'Whisky-Fan').split('@')[0],code:genCode(),photo:ME.photoURL||'',share:true,created:Date.now()},{merge:true});
+    }
+  }catch(e){console.warn('Profil konnte nicht geprüft werden',e)}
+  PENDING_NAME=null;
+}
+function startListeners(){
+  const u=ME.uid,L=(q,fn)=>unsubs.push(onSnapshot(q,fn,e=>{console.error(e);toast('Sync-Fehler: '+(e.code||e.message))}));
+  L(doc(db,'profiles',u),s=>{PROFILE=s.data()||null;sched()});
+  L(doc(db,'users',u),s=>{D.settings={currency:'CHF',...(s.data()?.settings||{})};sched()});
+  L(collection(db,'users',u,'bottles'),s=>{D.bottles=s.docs.map(d=>d.data());UI.loading=false;sched()});
+  L(collection(db,'users',u,'sessions'),s=>{D.sessions=s.docs.map(d=>d.data());sched()});
+  L(collection(db,'users',u,'tastings'),s=>{D.tastings=s.docs.map(d=>d.data());sched()});
+  L(query(collection(db,'friends'),where('members','array-contains',u)),async s=>{
+    FR.friends=s.docs.map(d=>({pid:d.id,id:d.data().members.find(m=>m!==u)}));
+    await Promise.all(FR.friends.filter(f=>!FR.profiles[f.id]).map(async f=>{try{FR.profiles[f.id]=(await getDoc(doc(db,'profiles',f.id))).data()||{}}catch{FR.profiles[f.id]={}}}));
+    sched();
+  });
+  L(query(collection(db,'requests'),where('to','==',u)),s=>{FR.incoming=s.docs.map(d=>({id:d.id,...d.data()}));sched()});
+  L(query(collection(db,'requests'),where('from','==',u)),s=>{FR.outgoing=s.docs.map(d=>({id:d.id,...d.data()}));sched()});
+}
+function stopListeners(){unsubs.forEach(f=>f());unsubs=[]}
+
+/* ============ Alte lokale Daten (v1) ============ */
+const LocalDB={open(){return new Promise((res,rej)=>{const r=indexedDB.open('whiskyvault',1);r.onupgradeneeded=()=>r.result.createObjectStore('kv');r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})},
+  async get(k){const db=await this.open();return new Promise((res,rej)=>{const q=db.transaction('kv').objectStore('kv').get(k);q.onsuccess=()=>res(q.result);q.onerror=()=>rej(q.error)})}};
+
+/* ============ Online-Abgleich (Open Food Facts) ============ */
+async function getJSON(url){
+  const c=new AbortController();const t=setTimeout(()=>c.abort(),14000);
+  try{const r=await fetch(url,{signal:c.signal});if(!r.ok)throw new Error('HTTP '+r.status);return await r.json()}
+  catch(e){throw new Error(e.name==='AbortError'?'Zeitüberschreitung':e.message)}
+  finally{clearTimeout(t)}
+}
+const OFF_FIELDS='code,product_name,brands,image_front_url,image_front_small_url,quantity,nutriments';
+function parseVol(q){
+  if(!q)return null;const m=String(q).toLowerCase().replace(',','.').match(/([\d.]+)\s*(cl|ml|l)\b/);if(!m)return null;
+  const v=parseFloat(m[1]);return Math.round(m[2]==='cl'?v*10:m[2]==='l'?v*1000:v);
+}
+function mapOff(p){
+  const n=p.nutriments||{};const abv=n.alcohol_100g??n.alcohol??null;
+  return{name:p.product_name||'(ohne Name)',distillery:(p.brands||'').split(',')[0].trim(),barcode:p.code||'',image:p.image_front_url||p.image_front_small_url||'',thumb:p.image_front_small_url||p.image_front_url||'',abv:abv?Math.round(abv*10)/10:null,volume:parseVol(p.quantity)};
+}
+async function offByCode(code){
+  const j=await getJSON(`https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(code)}.json?fields=${OFF_FIELDS}`);
+  return j.status===1&&j.product?mapOff({...j.product,code:j.product.code||code}):null;
+}
+async function offSearch(q){
+  const base=`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(q)}&search_simple=1&action=process&json=1&page_size=15&fields=${OFF_FIELDS}`;
+  let j=await getJSON(base+'&tagtype_0=categories&tag_contains_0=contains&tag_0=whiskies');
+  if(!(j.products||[]).length)j=await getJSON(base);
+  return (j.products||[]).filter(p=>p.product_name).map(mapOff);
+}
+async function openPrices(code){
+  const j=await getJSON(`https://prices.openfoodfacts.org/api/v1/prices?product_code=${encodeURIComponent(code)}&order_by=price&size=60`);
+  return (j.items||[]).filter(i=>i.price!=null).map(i=>({price:Number(i.price),currency:i.currency,date:i.date,place:(i.location&&(i.location.osm_name||i.location.osm_address_city))||''}));
+}
+async function cacheImage(url){
+  if(!url)return'';
+  try{const r=await fetch(url);if(!r.ok)throw 0;return await fileToDataURL(await r.blob())}catch{return url}
+}
+function fileToDataURL(file,max=480){
+  return new Promise((res,rej)=>{const img=new Image(),u=URL.createObjectURL(file);
+    img.onload=()=>{const s=Math.min(1,max/Math.max(img.width,img.height));const c=document.createElement('canvas');c.width=Math.round(img.width*s);c.height=Math.round(img.height*s);c.getContext('2d').drawImage(img,0,0,c.width,c.height);URL.revokeObjectURL(u);res(c.toDataURL('image/jpeg',.78))};
+    img.onerror=()=>{URL.revokeObjectURL(u);rej(new Error('Bild nicht lesbar'))};img.src=u});
+}
+function priceLinks(name,code){
+  const q=encodeURIComponent((name||'').trim());
+  const L=[
+    ['Google Shopping',`https://www.google.com/search?tbm=shop&q=${q}`],
+    ['toppreise.ch',`https://www.toppreise.ch/produktsuche?q=${q}`],
+    ['idealo.de',`https://www.idealo.de/preisvergleich/MainSearchProductCategory.html?q=${q}`],
+    ['Whiskybase',`https://www.whiskybase.com/search?q=${q}`]
+  ];
+  if(code)L.push(['Barcode bei Google',`https://www.google.com/search?tbm=shop&q=${encodeURIComponent(code)}`]);
+  return L.map(([t,u])=>`<a href="${u}" target="_blank" rel="noopener">${t}</a>`).join('');
+}
+
+/* ============ Dialoge ============ */
+function modal(html){
+  const d=document.createElement('dialog');d.className='modal';d.innerHTML=`<div class="mbody">${html}</div>`;
+  document.body.appendChild(d);d.addEventListener('close',()=>d.remove());
+  d.addEventListener('click',e=>{if(e.target.closest('[data-close]'))d.close()});
+  d.showModal();return d;
+}
+let h5;
+const loadH5=()=>h5??=new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js';s.onload=res;s.onerror=()=>{h5=null;rej(new Error('Scanner konnte nicht geladen werden'))};document.head.appendChild(s)});
+async function scanBarcode(){
+  try{await loadH5()}catch(e){alert(e.message);return null}
+  return new Promise(resolve=>{
+    const d=modal(`<div class="mhead"><h2>Barcode scannen</h2><button class="x" data-close>✕</button></div><div id="reader" style="width:100%"></div><p class="muted sm">Halte den Strichcode (EAN) ruhig in den Rahmen.</p><div class="row"><input id="mcode" placeholder="oder Nummer eintippen" inputmode="numeric"><button class="btn pri" id="mok">OK</button></div>`);
+    let q,done=false;
+    const finish=async v=>{if(done)return;done=true;try{await q?.stop();q?.clear()}catch{}d.close();resolve(v)};
+    d.addEventListener('close',()=>finish(null));
+    $('#mok',d).onclick=()=>{const v=$('#mcode',d).value.trim();if(v)finish(v)};
+    q=new Html5Qrcode('reader',{formatsToSupport:[Html5QrcodeSupportedFormats.EAN_13,Html5QrcodeSupportedFormats.EAN_8,Html5QrcodeSupportedFormats.UPC_A,Html5QrcodeSupportedFormats.UPC_E],useBarCodeDetectorIfSupported:true,verbose:false});
+    q.start({facingMode:'environment'},{fps:10,qrbox:{width:260,height:140}},t=>finish(t),()=>{}).catch(()=>{$('#reader',d).innerHTML='<p class="err">Kamera nicht verfügbar. Erlaube den Kamerazugriff oder tippe die Nummer ein.</p>'});
+  });
+}
+async function lookupInto(el,q,onPick){
+  q=q.trim();if(!q)return;
+  el.innerHTML='<p class="muted">Suche läuft …</p>';
+  try{
+    const items=/^\d{8,14}$/.test(q)?[await offByCode(q)].filter(Boolean):await offSearch(q);
+    if(!items.length){el.innerHTML='<p class="muted">Nichts gefunden. Trage die Daten von Hand ein oder versuche es mit dem Barcode.</p>';return}
+    el.innerHTML=items.map((it,i)=>`<button class="res" data-i="${i}">${it.thumb?`<img src="${esc(it.thumb)}" alt="">`:'<span class="ph">🥃</span>'}<span><b>${esc(it.name)}</b><small>${esc([it.distillery,it.abv?it.abv+' %':'',it.volume?it.volume+' ml':'',it.barcode].filter(Boolean).join(' · '))}</small></span></button>`).join('');
+    $$('.res',el).forEach(b=>b.onclick=()=>onPick(items[b.dataset.i]));
+  }catch(e){el.innerHTML=`<p class="err">Online-Suche nicht erreichbar (${esc(e.message)}). Später nochmals versuchen oder von Hand eintragen.</p>`}
+}
+function priceBox(d,{getName,getCode,onApply}){
+  const refresh=()=>{$('[data-plinks]',d).innerHTML=priceLinks(getName(),getCode())};
+  refresh();
+  d.addEventListener('input',e=>{if(e.target.name==='name'||e.target.name==='barcode')refresh()});
+  $('[data-a=pfind]',d).onclick=async()=>{
+    const out=$('[data-pout]',d),code=getCode();refresh();
+    if(!code){out.innerHTML='Die automatische Suche braucht einen Barcode. Nutze die Vergleichslinks unten und trage den günstigsten Preis von Hand ein.';return}
+    out.textContent='Suche Preise …';
+    try{
+      const all=await openPrices(code),cur=D.settings.currency;
+      const mine=all.filter(p=>p.currency===cur).sort((a,b)=>a.price-b.price);
+      if(mine[0]){const p=mine[0];out.innerHTML=`Günstigster gemeldeter Preis: <b>${money(p.price)}</b> ${p.place?'bei '+esc(p.place):''} (${fmtDate(p.date)}) – ${mine.length} Meldung(en). <button class="btn" data-ap>Übernehmen</button>`;$('[data-ap]',out).onclick=()=>onApply(p.price,p)}
+      else if(all.length){const p=all.sort((a,b)=>a.price-b.price)[0];out.innerHTML=`Nur Preise in anderer Währung gefunden (z. B. ${p.price} ${esc(p.currency)}). Bitte per Vergleichslink prüfen.`}
+      else out.innerHTML='Für diesen Barcode gibt es noch keine Community-Preise. Bitte per Vergleichslink prüfen und von Hand eintragen.';
+    }catch(e){out.innerHTML=`<span class="err">Preissuche nicht erreichbar (${esc(e.message)}).</span>`}
+  };
+}
+const PRICE_HTML=(label)=>`<div class="box"><label style="margin:0">${label}</label><div class="row"><input name="mprice" type="number" step="0.05" min="0" inputmode="decimal" placeholder="günstigster Preis aktuell"><button class="btn" data-a="pfind">Automatisch suchen</button></div><div class="sm muted" data-pout>Die automatische Suche nutzt Community-Preise von Open Prices (nur mit Barcode). Verlässlicher: Vergleichslinks öffnen und den besten Preis eintragen.</div><div class="links" data-plinks></div></div>`;
+
+/* ============ Anmeldung ============ */
+const AUTH_ERR={
+  'auth/invalid-credential':'E-Mail oder Passwort stimmt nicht.','auth/wrong-password':'E-Mail oder Passwort stimmt nicht.','auth/user-not-found':'E-Mail oder Passwort stimmt nicht.',
+  'auth/invalid-email':'Die E-Mail-Adresse ist ungültig.','auth/email-already-in-use':'Mit dieser E-Mail gibt es schon ein Konto. Melde dich an oder setze das Passwort zurück.',
+  'auth/weak-password':'Das Passwort braucht mindestens 6 Zeichen.','auth/too-many-requests':'Zu viele Versuche. Warte kurz und probiere es erneut.',
+  'auth/popup-closed-by-user':'Anmeldefenster wurde geschlossen.','auth/popup-blocked':'Der Browser blockiert das Google-Fenster. Erlaube Pop-ups für diese Seite.',
+  'auth/unauthorized-domain':'Diese Domain ist in Firebase nicht freigegeben (Authentication → Einstellungen → Autorisierte Domains).',
+  'auth/operation-not-allowed':'Diese Anmeldeart ist in Firebase noch nicht aktiviert.','auth/network-request-failed':'Keine Verbindung. Prüfe dein Internet.'
+};
+const authMsg=e=>AUTH_ERR[e.code]||('Anmeldung fehlgeschlagen ('+(e.code||e.message)+').');
+function renderSetup(v){
+  v.innerHTML=`<div class="auth"><h2>Firebase einrichten</h2><p class="muted">In <code>index.html</code> stehen noch die Platzhalter <code>DEIN_API_KEY</code> usw. Trage dort die Werte deiner Firebase-Web-App ein (Abschnitt «1) HIER DEINE FIREBASE-WERTE EINTRAGEN»).</p><div class="box"><b>Kurz:</b><span class="sm">1. Firebase-Projekt anlegen · 2. Authentication: E-Mail/Passwort und Google aktivieren · 3. Firestore-Datenbank erstellen · 4. Inhalt von <code>firestore.rules</code> bei den Regeln einfügen · 5. Web-App registrieren und Konfiguration kopieren · 6. Deine <code>github.io</code>-Domain bei den autorisierten Domains eintragen.</span></div><p class="sm muted">Die Schritt-für-Schritt-Anleitung steht in der README.</p></div>`;
+}
+function renderAuth(){
+  const v=$('#view');
+  if(!CONFIGURED)return renderSetup(v);
+  const reg=UI.authMode==='register';
+  v.innerHTML=`<div class="auth"><h2>${reg?'Konto erstellen':'Anmelden'}</h2>
+  <p class="muted">Deine Sammlung wird sicher gespeichert, auf allen Geräten synchron gehalten und lässt sich mit Freunden teilen.</p>
+  <button class="btn google" data-a="google"><svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.9 2.4 30.4 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.9 6.1C12.4 13.6 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.1 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.4c-.5 2.9-2.1 5.3-4.6 7l7.1 5.5c4.3-4 6.8-9.9 6.8-17z"/><path fill="#FBBC05" d="M10.5 28.7a14.5 14.5 0 0 1 0-9.4l-7.9-6.1a24 24 0 0 0 0 21.6l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.1-5.5c-2 1.4-4.9 2.3-8.8 2.3-6.3 0-11.6-4.1-13.5-9.8l-7.9 6.1C6.5 42.6 14.6 48 24 48z"/></svg>Mit Google anmelden</button>
+  <div class="or">oder mit E-Mail</div>
+  ${reg?'<div><label>Name (für Freunde sichtbar)</label><input name="name" autocomplete="name"></div>':''}
+  <div><label>E-Mail</label><input name="email" type="email" autocomplete="email" inputmode="email"></div>
+  <div><label>Passwort</label><input name="pw" type="password" autocomplete="${reg?'new-password':'current-password'}"></div>
+  <button class="btn pri" data-a="go">${reg?'Konto erstellen':'Anmelden'}</button>
+  <div class="row sb"><button class="btn ghost" data-a="toggle">${reg?'Ich habe schon ein Konto':'Neu hier? Konto erstellen'}</button>${reg?'':'<button class="btn ghost" data-a="reset">Passwort vergessen</button>'}</div>
+  <p class="sm" data-msg></p></div>`;
+  const msg=(t,ok)=>{const m=$('[data-msg]',v);m.className='sm '+(ok?'ok':'err');m.textContent=t};
+  const f=n=>$(`[name=${n}]`,v);
+  const go=async()=>{
+    const email=f('email').value.trim(),pw=f('pw').value;
+    if(!email||!pw)return msg('Bitte E-Mail und Passwort eingeben.');
+    try{
+      if(reg){
+        const name=f('name').value.trim();PENDING_NAME=name||null;
+        const c=await createUserWithEmailAndPassword(auth,email,pw);
+        if(name)await updateProfile(c.user,{displayName:name}).catch(()=>{});
+        sendEmailVerification(c.user).catch(()=>{});
+      }else await signInWithEmailAndPassword(auth,email,pw);
+    }catch(e){PENDING_NAME=null;msg(authMsg(e))}
+  };
+  v.onclick=async e=>{
+    const a=e.target.closest('[data-a]')?.dataset.a;if(!a)return;
+    if(a==='toggle'){UI.authMode=reg?'login':'register';renderAuth()}
+    if(a==='go')go();
+    if(a==='google'){try{await signInWithPopup(auth,new GoogleAuthProvider())}catch(err){msg(authMsg(err))}}
+    if(a==='reset'){const email=f('email').value.trim();if(!email)return msg('Gib oben deine E-Mail ein, dann senden wir dir einen Link.');try{await sendPasswordResetEmail(auth,email);msg('Link zum Zurücksetzen ist unterwegs (auch im Spam-Ordner nachsehen).',true)}catch(err){msg(authMsg(err))}}
+  };
+  v.onkeydown=e=>{if(e.key==='Enter'&&e.target.tagName==='INPUT')go()};
+}
+
+/* ============ Sammlung ============ */
+const sorters={
+  name:(a,b)=>a.name.localeCompare(b.name,'de'),
+  rating:(a,b)=>(b.rating??-1)-(a.rating??-1),
+  price:(a,b)=>(b.price??-1)-(a.price??-1),
+  fill:(a,b)=>a.fill-b.fill,
+  new:(a,b)=>(b.added||0)-(a.added||0)
+};
+function rColl(v){
+  const n=D.bottles.length,ein=D.bottles.reduce((s,b)=>s+(b.price||0),0),wert=D.bottles.reduce((s,b)=>s+(b.market?.price??b.price??0),0);
+  const rated=D.bottles.filter(b=>b.rating!=null),avg=rated.length?Math.round(rated.reduce((s,b)=>s+b.rating,0)/rated.length):null;
+  v.innerHTML=`<div class="stats">
+    <div class="stat"><b>${n}</b><span>Flaschen</span></div>
+    <div class="stat"><b>${money(ein)}</b><span>Einstand gesamt</span></div>
+    <div class="stat"><b>${money(wert)}</b><span>Marktwert (wo bekannt, sonst Einstand)</span></div>
+    <div class="stat"><b>${avg??'–'}</b><span>Ø Note</span></div></div>
+  <div class="tools"><input id="q" type="search" placeholder="Sammlung durchsuchen" value="${esc(UI.q)}">
+    <select id="sort"><option value="name">Name A–Z</option><option value="rating">Beste Note</option><option value="price">Teuerste</option><option value="fill">Fast leer zuerst</option><option value="new">Neueste</option></select>
+    <button class="btn pri" id="add">+ Whisky</button></div><div id="grid"></div>`;
+  $('#sort').value=UI.sort;
+  $('#q').oninput=e=>{UI.q=e.target.value;fillGrid()};
+  $('#sort').onchange=e=>{UI.sort=e.target.value;fillGrid()};
+  $('#add').onclick=()=>openBottle();
+  fillGrid();
+}
+function fillGrid(){
+  const q=UI.q.trim().toLowerCase();
+  const list=D.bottles.filter(b=>!q||[b.name,b.distillery,b.barcode,b.notes].join(' ').toLowerCase().includes(q)).sort(sorters[UI.sort]);
+  const g=$('#grid');
+  if(!list.length){g.className='';g.innerHTML=D.bottles.length?'<div class="empty">Keine Treffer.</div>':'<div class="empty"><b>Noch keine Flaschen</b>Tippe auf „+ Whisky“ und such deine erste Flasche über Name oder Barcode.</div>';return}
+  g.className='grid';
+  g.innerHTML=list.map(b=>{
+    const d=(b.market?.price!=null&&b.price!=null)?b.market.price-b.price:null;
+    return `<article class="card" data-id="${b.id}"><div class="pic">${b.image?`<img loading="lazy" src="${esc(b.image)}" alt="">`:'🥃'}<div class="gauge" title="Füllstand ${b.fill}%"><i style="height:${b.fill}%"></i></div>${b.rating!=null?`<b class="score" style="--c:${scoreColor(b.rating)}">${b.rating}</b>`:''}</div>
+    <div class="cbody"><h3>${esc(b.name)}</h3><p class="muted">${esc([b.distillery,b.age?b.age+' J.':'',b.abv?b.abv+' %':''].filter(Boolean).join(' · '))}</p>
+    <div class="row sb sm"><span>${b.fill}% voll</span><span>Einstand ${money(b.price)}</span></div>
+    ${b.market?.price!=null?`<div class="mk">Markt ab <b>${money(b.market.price)}</b>${d!=null&&d!==0?` <span class="${d>0?'up':'down'}">(${d>0?'+':''}${money(d)})</span>`:''}</div>`:''}</div></article>`}).join('');
+  $$('.card',g).forEach(c=>c.onclick=()=>openBottle(c.dataset.id));
+}
+function openBottle(id,pre){
+  const isNew=!id;
+  const b=id?structuredClone(D.bottles.find(x=>x.id===id)):Object.assign({id:uid(),name:'',distillery:'',age:null,abv:null,volume:700,barcode:'',image:'',fill:100,price:null,rating:null,notes:'',market:null,added:Date.now()},pre||{});
+  const d=modal(`<div class="mhead"><h2>${isNew?'Whisky hinzufügen':'Whisky bearbeiten'}</h2><button class="x" data-close aria-label="Schliessen">✕</button></div>
+  <div class="box"><label style="margin:0">Online abgleichen</label><div class="row"><input name="q" placeholder="Name oder Barcode (EAN)"><button class="btn" data-a="search">Suchen</button><button class="btn" data-a="scan" title="Barcode scannen">📷</button></div><div class="results" data-r></div></div>
+  <div class="imgrow"><div class="pic" data-pic></div><div class="stack"><button class="btn" data-a="photo">Foto wählen / aufnehmen</button><button class="btn ghost" data-a="rmimg">Bild entfernen</button><input type="file" accept="image/*" hidden data-file></div></div>
+  <div><label>Name</label><input name="name" value="${esc(b.name)}" placeholder="z. B. Lagavulin 16"></div>
+  <div class="g2"><div><label>Brennerei / Marke</label><input name="distillery" value="${esc(b.distillery)}"></div><div><label>Barcode</label><input name="barcode" inputmode="numeric" value="${esc(b.barcode)}"></div></div>
+  <div class="g3"><div><label>Alter (Jahre)</label><input name="age" type="number" min="0" value="${b.age??''}"></div><div><label>Alkohol (% vol)</label><input name="abv" type="number" step="0.1" value="${b.abv??''}"></div><div><label>Inhalt (ml)</label><input name="volume" type="number" value="${b.volume??''}"></div></div>
+  <div><label>Füllstand</label><div class="row"><input name="fill" type="range" min="0" max="100" step="5" value="${b.fill}"><span class="range-val" data-fv>${b.fill}%</span></div></div>
+  <div class="g2"><div><label>Einstandspreis (privat)</label><input name="price" type="number" step="0.05" min="0" inputmode="decimal" value="${b.price??''}"></div><div><label>Note (0–100)</label><input name="rating" type="number" min="0" max="100" inputmode="numeric" value="${b.rating??''}" placeholder="–"></div></div>
+  ${PRICE_HTML('Aktueller Marktpreis (privat)')}
+  <div><label>Notizen (für Freunde sichtbar, wenn du teilst)</label><textarea name="notes">${esc(b.notes)}</textarea></div>
+  <div class="row sb"><div>${isNew?'':'<button class="btn danger" data-a="del">Löschen</button>'}</div><div class="row"><button class="btn ghost" data-close>Abbrechen</button><button class="btn pri" data-a="save">Speichern</button></div></div>`);
+  const f=n=>d.querySelector(`[name=${n}]`);
+  let img=b.image;
+  const pic=()=>{$('[data-pic]',d).innerHTML=img?`<img src="${esc(img)}" alt="">`:'🥃'};pic();
+  if(b.market?.price!=null)f('mprice').value=b.market.price;
+  f('fill').oninput=()=>$('[data-fv]',d).textContent=f('fill').value+'%';
+  const pick=async it=>{
+    f('name').value=it.name;f('distillery').value=it.distillery||f('distillery').value;f('barcode').value=it.barcode||'';
+    if(it.abv)f('abv').value=it.abv;if(it.volume)f('volume').value=it.volume;
+    $('[data-r]',d).innerHTML='<p class="muted">Übernommen, Bild wird geladen …</p>';
+    img=await cacheImage(it.image)||img;pic();$('[data-r]',d).innerHTML='<p class="ok sm">Daten übernommen. Prüfe sie kurz und ergänze Preis und Note.</p>';
+    f('name').dispatchEvent(new Event('input',{bubbles:true}));
+  };
+  const search=()=>lookupInto($('[data-r]',d),f('q').value,pick);
+  f('q').addEventListener('keydown',e=>{if(e.key==='Enter')search()});
+  priceBox(d,{getName:()=>f('name').value,getCode:()=>f('barcode').value.trim(),onApply:p=>{f('mprice').value=p}});
+  d.addEventListener('click',async e=>{
+    const a=e.target.closest('[data-a]')?.dataset.a;if(!a)return;
+    if(a==='search')search();
+    if(a==='scan'){const c=await scanBarcode();if(c){f('q').value=c;search()}}
+    if(a==='photo')$('[data-file]',d).click();
+    if(a==='rmimg'){img='';pic()}
+    if(a==='del'&&confirm('Diese Flasche wirklich löschen?')){D.tastings.filter(t=>t.bottleId===b.id).forEach(t=>put('tastings',{...t,bottleId:null}));del('bottles',b.id);d.close()}
+    if(a==='save'){
+      const name=f('name').value.trim();if(!name){f('name').focus();return}
+      const mp=num(f('mprice').value);
+      Object.assign(b,{name,distillery:f('distillery').value.trim(),barcode:f('barcode').value.trim(),age:num(f('age').value),abv:num(f('abv').value),volume:num(f('volume').value),fill:Number(f('fill').value),price:num(f('price').value),rating:num(f('rating').value),notes:f('notes').value.trim(),image:img});
+      if(mp==null)b.market=null;else if(b.market?.price!==mp)b.market={price:mp,date:today(),source:'manuell'};
+      put('bottles',b);d.close();
+    }
+  });
+  $('[data-file]',d).onchange=async e=>{const file=e.target.files[0];if(file){try{img=await fileToDataURL(file);pic()}catch(err){alert(err.message)}}};
+}
+
+/* ============ Degustation ============ */
+function rTast(v){
+  const ses=D.sessions.slice().sort((a,b)=>b.date.localeCompare(a.date));
+  if(UI.sessionId&&!D.sessions.find(s=>s.id===UI.sessionId))UI.sessionId=null;
+  if(!UI.sessionId&&ses[0])UI.sessionId=ses[0].id;
+  const cur=D.sessions.find(s=>s.id===UI.sessionId);
+  let html=`<div class="tools"><select id="ses" ${ses.length?'':'disabled'} style="flex:1 1 200px">${ses.map(s=>`<option value="${s.id}" ${s.id===UI.sessionId?'selected':''}>${esc(s.name)} – ${fmtDate(s.date)}</option>`).join('')||'<option>Noch keine Degustation</option>'}</select><button class="btn pri" id="newses">+ Neue Degustation</button>${cur?'<button class="btn ghost danger" id="delses">Löschen</button>':''}</div>`;
+  if(!cur){v.innerHTML=html+'<div class="empty"><b>Starte eine Degustation</b>Lege einen Abend an, such die Whiskys per Name oder Barcode und bewerte jeden. Am Ende siehst du, was dir geschmeckt hat.</div>';bindSes();return}
+  html+=`<div class="box" style="margin-bottom:16px"><label style="margin:0">Whisky zur Degustation hinzufügen</label><div class="row"><input id="tq" placeholder="Name oder Barcode (Sammlung & online)"><button class="btn" id="tgo">Suchen</button><button class="btn" id="tscan" title="Barcode scannen">📷</button></div><div class="results" id="tres"></div></div>`;
+  const ts=D.tastings.filter(t=>t.sessionId===cur.id).sort((a,b)=>(b.score??-1)-(a.score??-1)||a.created-b.created);
+  if(!ts.length)html+='<div class="empty"><b>Noch nichts im Glas</b>Such oben deinen ersten Whisky.</div>';
+  else{
+    const best=ts.find(t=>t.score!=null);
+    html+=`<p class="muted sm">${ts.length} Whisky${ts.length>1?'s':''}${best?` · Favorit: <b style="color:var(--amber2)">${esc(best.whisky.name)}</b> (${best.score})`:''}</p><div class="list">${ts.map((t,i)=>tastingItem(t,t.score!=null?i+1:'')).join('')}</div>`;
+  }
+  v.innerHTML=html;bindSes();
+  $$('.item',v).forEach(it=>it.onclick=()=>openTasting(it.dataset.id));
+  const go=async(q)=>{q=q.trim();if(!q)return;await tastingSearch(q,$('#tres'))};
+  $('#tgo').onclick=()=>go($('#tq').value);
+  $('#tq').onkeydown=e=>{if(e.key==='Enter')go(e.target.value)};
+  $('#tscan').onclick=async()=>{const c=await scanBarcode();if(c){$('#tq').value=c;go(c)}};
+}
+function tastingItem(t,rank){
+  return `<div class="item" data-id="${t.id}"><div class="rank">${rank}</div><div class="th">${t.whisky.image?`<img src="${esc(t.whisky.image)}" alt="">`:'🥃'}</div><div class="mid"><b>${esc(t.whisky.name)}</b><span class="muted sm">${esc([t.whisky.distillery,(t.tags||[]).join(', ')].filter(Boolean).join(' · '))}</span><div>${t.buy?`<span class="pill ${t.buy}">${{ja:'Kaufen',vielleicht:'Vielleicht',nein:'Nein'}[t.buy]}</span>`:''}${t.bottleId?' <span class="pill">in Sammlung</span>':''}</div></div><div class="bigscore" ${t.score!=null?`style="color:${scoreColor(t.score)}"`:''}>${t.score??'–'}</div></div>`;
+}
+function bindSes(){
+  $('#newses').onclick=()=>{
+    const d=modal(`<div class="mhead"><h2>Neue Degustation</h2><button class="x" data-close>✕</button></div><div><label>Name</label><input name="n" value="Degustation ${fmtDate(today())}"></div><div><label>Datum</label><input name="dt" type="date" value="${today()}"></div><div class="row sb"><span></span><div class="row"><button class="btn ghost" data-close>Abbrechen</button><button class="btn pri" data-s>Anlegen</button></div></div>`);
+    $('[data-s]',d).onclick=()=>{const s={id:uid(),name:$('[name=n]',d).value.trim()||'Degustation',date:$('[name=dt]',d).value||today()};UI.sessionId=s.id;put('sessions',s);d.close()};
+  };
+  const sel=$('#ses');if(sel&&!sel.disabled)sel.onchange=e=>{UI.sessionId=e.target.value;render()};
+  const dl=$('#delses');if(dl)dl.onclick=()=>{if(confirm('Diese Degustation samt Bewertungen löschen?')){const sid=UI.sessionId;D.tastings.filter(t=>t.sessionId===sid).forEach(t=>del('tastings',t.id));del('sessions',sid);UI.sessionId=null}};
+}
+async function tastingSearch(q,el){
+  const ql=q.toLowerCase();
+  const own=D.bottles.filter(b=>[b.name,b.distillery,b.barcode].join(' ').toLowerCase().includes(ql));
+  const ownHtml=own.map(b=>`<button class="res" data-own="${b.id}">${b.image?`<img src="${esc(b.image)}" alt="">`:'<span class="ph">🥃</span>'}<span><b>${esc(b.name)}</b><small>Aus meiner Sammlung${b.barcode?' · '+esc(b.barcode):''}</small></span></button>`).join('');
+  el.innerHTML=(ownHtml?`<label>Meine Sammlung</label>${ownHtml}`:'')+`<label>Online</label><div id="onl"></div><button class="res" data-manual><span class="ph">✏️</span><span><b>Von Hand hinzufügen: „${esc(q)}“</b><small>Falls online nichts passt</small></span></button>`;
+  $$('[data-own]',el).forEach(b=>b.onclick=()=>{const x=D.bottles.find(y=>y.id===b.dataset.own);addTasting(x,x.id)});
+  $('[data-manual]',el).onclick=()=>addTasting({name:/^\d{8,14}$/.test(q)?'':q,barcode:/^\d{8,14}$/.test(q)?q:''},null);
+  await lookupInto($('#onl',el),q,async it=>{it.image=await cacheImage(it.image);addTasting(it,null)});
+}
+function addTasting(w,bottleId){
+  const ex=D.tastings.find(t=>t.sessionId===UI.sessionId&&((bottleId&&t.bottleId===bottleId)||(w.barcode&&t.whisky.barcode===w.barcode)||(!w.barcode&&!bottleId&&w.name&&t.whisky.name.toLowerCase()===w.name.toLowerCase())));
+  if(ex){openTasting(ex.id);return}
+  const t={id:uid(),sessionId:UI.sessionId,bottleId:bottleId||null,whisky:{name:w.name||'',distillery:w.distillery||'',barcode:w.barcode||'',image:w.image||'',abv:w.abv||null,volume:w.volume||null},score:null,tags:[],nose:'',palate:'',finish:'',notes:'',buy:'',price:null,priceDate:null,created:Date.now()};
+  put('tastings',t);openTasting(t.id);
+}
+function openTasting(id){
+  const orig=D.tastings.find(x=>x.id===id);if(!orig)return;const t=structuredClone(orig);
+  const d=modal(`<div class="mhead"><h2>Bewertung</h2><button class="x" data-close aria-label="Schliessen">✕</button></div>
+  <div class="imgrow"><div class="pic" data-pic></div><div class="stack" style="flex:1"><div><label>Name</label><input name="name" value="${esc(t.whisky.name)}"></div><div><label>Barcode</label><input name="barcode" inputmode="numeric" value="${esc(t.whisky.barcode)}"></div><button class="btn" data-a="photo">Foto wählen / aufnehmen</button><input type="file" accept="image/*" hidden data-file></div></div>
+  <div><label>Punkte (0–100)</label><div class="row"><input name="score" type="range" min="0" max="100" step="1" value="${t.score??75}"><span class="range-val" data-sv>${t.score??'–'}</span></div><div class="sm muted">Regler bewegen, um eine Note zu setzen.</div></div>
+  <div><label>Geschmacksrichtung</label><div class="chips">${TAGS.map(g=>`<button class="chip ${(t.tags||[]).includes(g)?'on':''}" data-tag="${g}">${g}</button>`).join('')}</div></div>
+  <div><label>Nase</label><textarea name="nose">${esc(t.nose)}</textarea></div>
+  <div class="g2"><div><label>Gaumen</label><textarea name="palate">${esc(t.palate)}</textarea></div><div><label>Abgang</label><textarea name="finish">${esc(t.finish)}</textarea></div></div>
+  <div><label>Würdest du ihn kaufen?</label><div class="seg" data-buy><button class="btn ${t.buy==='ja'?'on':''}" data-v="ja">Ja</button><button class="btn ${t.buy==='vielleicht'?'on':''}" data-v="vielleicht">Vielleicht</button><button class="btn ${t.buy==='nein'?'on':''}" data-v="nein">Nein</button></div></div>
+  ${PRICE_HTML('Marktpreis (günstigster bekannter Preis)')}
+  <div class="row wrap sb"><button class="btn danger" data-a="del">Löschen</button><div class="row wrap">
+    ${t.bottleId?'<button class="btn" data-a="tobottle">Note in Sammlung übernehmen</button>':'<button class="btn" data-a="tocoll">In Sammlung übernehmen</button>'}
+    <button class="btn pri" data-a="save">Speichern</button></div></div>`);
+  const f=n=>d.querySelector(`[name=${n}]`);
+  let img=t.whisky.image,touched=t.score!=null,buy=t.buy;
+  const pic=()=>{$('[data-pic]',d).innerHTML=img?`<img src="${esc(img)}" alt="">`:'🥃'};pic();
+  if(t.price!=null)f('mprice').value=t.price;
+  f('score').oninput=()=>{touched=true;$('[data-sv]',d).textContent=f('score').value};
+  priceBox(d,{getName:()=>f('name').value,getCode:()=>f('barcode').value.trim(),onApply:p=>{f('mprice').value=p}});
+  $$('.chip',d).forEach(c=>c.onclick=()=>{c.classList.toggle('on')});
+  $$('[data-buy] button',d).forEach(b=>b.onclick=()=>{buy=buy===b.dataset.v?'':b.dataset.v;$$('[data-buy] button',d).forEach(x=>x.classList.toggle('on',x.dataset.v===buy))});
+  const collect=()=>{
+    t.whisky.name=f('name').value.trim()||'(ohne Name)';t.whisky.barcode=f('barcode').value.trim();t.whisky.image=img;
+    t.score=touched?Number(f('score').value):null;t.tags=$$('.chip.on',d).map(c=>c.dataset.tag);
+    t.nose=f('nose').value.trim();t.palate=f('palate').value.trim();t.finish=f('finish').value.trim();t.buy=buy;
+    const p=num(f('mprice').value);if(p!==t.price){t.price=p;t.priceDate=p==null?null:today()}
+  };
+  d.addEventListener('click',e=>{
+    const a=e.target.closest('[data-a]')?.dataset.a;if(!a)return;
+    if(a==='photo')$('[data-file]',d).click();
+    if(a==='save'){collect();put('tastings',t);d.close()}
+    if(a==='del'&&confirm('Bewertung löschen?')){del('tastings',t.id);d.close()}
+    if(a==='tobottle'){collect();put('tastings',t);const b=D.bottles.find(x=>x.id===t.bottleId);if(b&&t.score!=null)put('bottles',{...b,rating:t.score});d.close()}
+    if(a==='tocoll'){collect();put('tastings',t);d.close();addToCollection(t.id)}
+  });
+  $('[data-file]',d).onchange=async e=>{const file=e.target.files[0];if(file){try{img=await fileToDataURL(file);pic()}catch(err){alert(err.message)}}};
+}
+function addToCollection(tid){
+  const t=D.tastings.find(x=>x.id===tid);if(!t)return;
+  const b={id:uid(),name:t.whisky.name,distillery:t.whisky.distillery,age:null,abv:t.whisky.abv,volume:t.whisky.volume||700,barcode:t.whisky.barcode,image:t.whisky.image,fill:100,price:t.price,rating:t.score,notes:[t.nose&&'Nase: '+t.nose,t.palate&&'Gaumen: '+t.palate,t.finish&&'Abgang: '+t.finish].filter(Boolean).join('\n'),market:t.price!=null?{price:t.price,date:t.priceDate||today(),source:'Degustation'}:null,added:Date.now()};
+  put('bottles',b);put('tastings',{...t,bottleId:b.id});UI.tab='sammlung';render();openBottle(b.id);
+}
+
+/* ============ Kaufliste ============ */
+function rBuy(v){
+  const all=UI.kaufMode==='alle';
+  let list=D.tastings.filter(t=>all?true:(!t.bottleId&&(t.buy==='ja'||t.buy==='vielleicht')));
+  list.sort((a,b)=>(all?0:((b.buy==='ja')-(a.buy==='ja')))||(b.score??-1)-(a.score??-1));
+  v.innerHTML=`<div class="tools"><div class="seg" style="flex:1"><button class="btn ${all?'':'on'}" data-m="kauf">Kaufliste</button><button class="btn ${all?'on':''}" data-m="alle">Alle Bewertungen</button></div></div>
+  ${list.length?`<div class="list">${list.map((t,i)=>{
+    const ses=D.sessions.find(s=>s.id===t.sessionId);
+    return `<div class="item" data-id="${t.id}"><div class="rank">${i+1}</div><div class="th">${t.whisky.image?`<img src="${esc(t.whisky.image)}" alt="">`:'🥃'}</div><div class="mid"><b>${esc(t.whisky.name)}</b><span class="muted sm">${esc(ses?ses.name:'')}</span><div>${t.buy?`<span class="pill ${t.buy}">${{ja:'Kaufen',vielleicht:'Vielleicht',nein:'Nein'}[t.buy]}</span>`:''} ${t.price!=null?`<span class="pill">ab ${money(t.price)}</span>`:''}${t.bottleId?' <span class="pill">in Sammlung</span>':''}</div></div><div class="bigscore" ${t.score!=null?`style="color:${scoreColor(t.score)}"`:''}>${t.score??'–'}</div></div>`}).join('')}</div>`
+  :`<div class="empty"><b>${all?'Noch keine Bewertungen':'Die Kaufliste ist leer'}</b>${all?'Bewerte Whiskys im Tab Degustation.':'Whiskys, bei denen du „Ja“ oder „Vielleicht“ wählst, landen hier – sortiert nach Note. Tippe einen Eintrag an, um den aktuellen Marktpreis zu prüfen.'}</div>`}`;
+  $$('[data-m]',v).forEach(b=>b.onclick=()=>{UI.kaufMode=b.dataset.m;render()});
+  $$('.item',v).forEach(it=>it.onclick=()=>openTasting(it.dataset.id));
+}
+
+/* ============ Freunde ============ */
+const initial=n=>(n||'?').trim().charAt(0).toUpperCase();
+function rFriends(v){
+  if(UI.friend)return rFriendView(v);
+  if(!PROFILE){v.innerHTML='<p class="muted">Profil wird geladen …</p>';return}
+  const name=id=>esc(FR.profiles[id]?.name||'Unbekannt');
+  v.innerHTML=`<div class="list" style="max-width:680px">
+  <div class="box"><label style="margin:0">Dein Profil</label>
+    <div><label>Anzeigename</label><div class="row"><input id="pname" value="${esc(PROFILE.name)}" maxlength="40"><button class="btn" id="psave">Speichern</button></div></div>
+    <div><label>Dein Freundescode</label><div class="row"><span class="code">${fmtCode(PROFILE.code)}</span><button class="btn" id="pcopy">Kopieren</button></div><p class="sm muted" style="margin:6px 0 0">Gib den Code Freunden weiter. Wer ihn kennt, kann dir eine Anfrage schicken – sehen kann er deine Sammlung erst, wenn du annimmst.</p></div>
+    <label class="chk"><input type="checkbox" id="pshare" ${PROFILE.share?'checked':''}> Freunde dürfen meine Sammlung sehen</label>
+    <p class="sm muted" style="margin:0">Freunde sehen Name, Bild, Füllstand, Note und Notizen. Einstands- und Marktpreise sowie Degustationen bleiben privat.</p></div>
+  <div class="box"><label style="margin:0">Freund hinzufügen</label><div class="row"><input id="fcode" placeholder="Freundescode, z. B. K7QF-2MXP" autocapitalize="characters" autocomplete="off"><button class="btn pri" id="fadd">Anfrage senden</button></div><div class="sm" id="fmsg"></div></div>
+  ${FR.incoming.length?`<div class="box"><label style="margin:0">Anfragen an dich</label>${FR.incoming.map(r=>`<div class="row sb"><div class="row"><span class="avatar">${esc(initial(r.fromName))}</span><b>${esc(r.fromName||'Unbekannt')}</b></div><div class="row"><button class="btn pri" data-acc="${r.id}">Annehmen</button><button class="btn ghost" data-dec="${r.id}">Ablehnen</button></div></div>`).join('')}</div>`:''}
+  ${FR.outgoing.length?`<div class="box"><label style="margin:0">Gesendete Anfragen</label>${FR.outgoing.map(r=>`<div class="row sb"><div class="row"><span class="avatar">${esc(initial(r.toName))}</span><span>${esc(r.toName||'Unbekannt')} <span class="muted sm">wartet auf Antwort</span></span></div><button class="btn ghost" data-dec="${r.id}">Zurückziehen</button></div>`).join('')}</div>`:''}
+  <div class="box"><label style="margin:0">Deine Freunde (${FR.friends.length})</label>
+    ${FR.friends.length?FR.friends.map(f=>`<div class="item static"><span class="avatar">${esc(initial(FR.profiles[f.id]?.name))}</span><div class="mid"><b>${name(f.id)}</b></div><button class="btn" data-view="${f.id}">Sammlung ansehen</button><button class="btn ghost danger" data-rm="${f.pid}" title="Freund entfernen">✕</button></div>`).join(''):'<p class="muted sm" style="margin:0">Noch keine Freunde. Tausche Codes aus und teile eure Sammlungen.</p>'}</div></div>`;
+  $('#psave').onclick=()=>{const n=$('#pname').value.trim();if(!n)return;setDoc(doc(db,'profiles',ME.uid),{name:n},{merge:true}).then(()=>toast('Name gespeichert')).catch(fail)};
+  $('#pcopy').onclick=async()=>{try{await navigator.clipboard.writeText(PROFILE.code);toast('Code kopiert')}catch{toast('Code: '+fmtCode(PROFILE.code))}};
+  $('#pshare').onchange=e=>setDoc(doc(db,'profiles',ME.uid),{share:e.target.checked},{merge:true}).catch(fail);
+  $('#fadd').onclick=()=>sendRequest($('#fcode').value);
+  $('#fcode').onkeydown=e=>{if(e.key==='Enter')sendRequest(e.target.value)};
+  $$('[data-acc]',v).forEach(b=>b.onclick=()=>acceptReq(FR.incoming.find(r=>r.id===b.dataset.acc)));
+  $$('[data-dec]',v).forEach(b=>b.onclick=()=>deleteDoc(doc(db,'requests',b.dataset.dec)).catch(fail));
+  $$('[data-view]',v).forEach(b=>b.onclick=()=>openFriend(b.dataset.view));
+  $$('[data-rm]',v).forEach(b=>b.onclick=()=>{if(confirm('Freundschaft beenden? Ihr seht danach gegenseitig nichts mehr.'))deleteDoc(doc(db,'friends',b.dataset.rm)).catch(fail)});
+}
+async function sendRequest(raw){
+  const code=String(raw).toUpperCase().replace(/[^A-Z0-9]/g,''),msg=$('#fmsg');
+  const say=(t,ok)=>{msg.className='sm '+(ok?'ok':'err');msg.textContent=t};
+  if(code.length!==8)return say('Der Code hat 8 Zeichen (z. B. K7QF-2MXP).');
+  if(code===PROFILE.code)return say('Das ist dein eigener Code.');
+  try{
+    const s=await getDocs(query(collection(db,'profiles'),where('code','==',code)));
+    if(s.empty)return say('Kein Profil mit diesem Code gefunden.');
+    const fid=s.docs[0].id,fp=s.docs[0].data();
+    if(FR.friends.some(f=>f.id===fid))return say('Ihr seid schon befreundet.');
+    if(FR.incoming.some(r=>r.from===fid))return say(`${fp.name} hat dir bereits eine Anfrage geschickt – nimm sie oben an.`);
+    if(FR.outgoing.some(r=>r.to===fid))return say('Die Anfrage ist schon unterwegs.');
+    await setDoc(doc(db,'requests',ME.uid+'_'+fid),{from:ME.uid,to:fid,fromName:PROFILE.name,toName:fp.name,created:Date.now()});
+    $('#fcode').value='';say(`Anfrage an ${fp.name} gesendet.`,true);
+  }catch(e){say('Das hat nicht geklappt: '+(e.code||e.message))}
+}
+async function acceptReq(r){
+  if(!r)return;
+  const members=[r.from,ME.uid].sort();
+  try{await setDoc(doc(db,'friends',members.join('_')),{members,created:Date.now()});await deleteDoc(doc(db,'requests',r.id));toast('Ihr seid jetzt befreundet')}catch(e){fail(e)}
+}
+async function openFriend(fid){
+  UI.friend={id:fid,loading:true,items:[],q:'',onlyNew:false};render();
+  try{UI.friend.items=(await getDocs(collection(db,'profiles',fid,'shared'))).docs.map(d=>d.data())}
+  catch(e){UI.friend.error=e.code==='permission-denied'?'Diese Sammlung ist aktuell nicht freigegeben.':'Laden fehlgeschlagen ('+(e.code||e.message)+').'}
+  UI.friend.loading=false;render();
+}
+const iHave=b=>D.bottles.some(x=>(b.barcode&&x.barcode===b.barcode)||x.name.trim().toLowerCase()===b.name.trim().toLowerCase());
+function rFriendView(v){
+  const F=UI.friend,p=FR.profiles[F.id]||{};
+  const rated=F.items.filter(b=>b.rating!=null),avg=rated.length?Math.round(rated.reduce((s,b)=>s+b.rating,0)/rated.length):null;
+  v.innerHTML=`<div class="tools"><button class="btn" id="back">← Zurück</button><h2 style="flex:1">${esc(p.name||'Freund')}</h2></div>
+  ${F.loading?'<p class="muted">Lade Sammlung …</p>':F.error?`<div class="empty">${esc(F.error)}</div>`:`
+  <div class="stats"><div class="stat"><b>${F.items.length}</b><span>Flaschen</span></div><div class="stat"><b>${avg??'–'}</b><span>Ø Note</span></div><div class="stat"><b>${F.items.filter(b=>!iHave(b)).length}</b><span>die du nicht hast</span></div></div>
+  <div class="tools"><input id="fq" type="search" placeholder="Sammlung durchsuchen" value="${esc(F.q)}"><label class="chk"><input type="checkbox" id="fnew" ${F.onlyNew?'checked':''}> nur was ich nicht habe</label></div><div id="fgrid"></div>`}`;
+  $('#back').onclick=()=>{UI.friend=null;render()};
+  if(F.loading||F.error)return;
+  const fill=()=>{
+    const q=F.q.trim().toLowerCase();
+    const list=F.items.filter(b=>(!q||[b.name,b.distillery,b.notes].join(' ').toLowerCase().includes(q))&&(!F.onlyNew||!iHave(b))).sort((a,b)=>(b.rating??-1)-(a.rating??-1)||a.name.localeCompare(b.name,'de'));
+    const g=$('#fgrid');
+    if(!list.length){g.className='';g.innerHTML='<div class="empty">'+(F.items.length?'Keine Treffer.':'Noch keine Flaschen freigegeben.')+'</div>';return}
+    g.className='grid';
+    g.innerHTML=list.map((b,i)=>`<article class="card" data-i="${i}"><div class="pic">${b.image?`<img loading="lazy" src="${esc(b.image)}" alt="">`:'🥃'}<div class="gauge"><i style="height:${b.fill}%"></i></div>${b.rating!=null?`<b class="score" style="--c:${scoreColor(b.rating)}">${b.rating}</b>`:''}</div><div class="cbody"><h3>${esc(b.name)}</h3><p class="muted">${esc([b.distillery,b.age?b.age+' J.':'',b.abv?b.abv+' %':''].filter(Boolean).join(' · '))}</p><div>${iHave(b)?'<span class="pill ja">hast du auch</span>':''}</div></div></article>`).join('');
+    $$('.card',g).forEach(c=>c.onclick=()=>friendBottle(list[c.dataset.i],p.name));
+  };
+  $('#fq').oninput=e=>{F.q=e.target.value;fill()};
+  $('#fnew').onchange=e=>{F.onlyNew=e.target.checked;fill()};
+  fill();
+}
+function friendBottle(b,owner){
+  modal(`<div class="mhead"><h2>${esc(b.name)}</h2><button class="x" data-close aria-label="Schliessen">✕</button></div>
+  <div class="imgrow"><div class="pic">${b.image?`<img src="${esc(b.image)}" alt="">`:'🥃'}<div class="gauge"><i style="height:${b.fill}%"></i></div></div><div class="stack"><span class="muted">${esc([b.distillery,b.age?b.age+' Jahre':'',b.abv?b.abv+' %':'',b.volume?b.volume+' ml':''].filter(Boolean).join(' · '))}</span><span>Füllstand: <b>${b.fill}%</b></span><span>Note von ${esc(owner||'Freund')}: <b style="color:${b.rating!=null?scoreColor(b.rating):'inherit'}">${b.rating??'–'}</b></span>${iHave(b)?'<span class="pill ja">hast du auch</span>':''}</div></div>
+  ${b.notes?`<div class="box"><label style="margin:0">Notizen</label><div style="white-space:pre-wrap">${esc(b.notes)}</div></div>`:''}
+  <div class="box"><label style="margin:0">Preis prüfen</label><div class="links">${priceLinks(b.name,b.barcode)}</div></div>`);
+}
+
+/* ============ Konto ============ */
+function rAccount(v){
+  const prov=ME.providerData.map(p=>p.providerId==='google.com'?'Google':'E-Mail').join(', ');
+  v.innerHTML=`<div class="list" style="max-width:640px">
+  <div class="box"><label style="margin:0">Angemeldet als</label><div><b>${esc(PROFILE?.name||ME.displayName||'')}</b><div class="muted sm">${esc(ME.email||'')} · ${esc(prov)}</div></div>${!ME.emailVerified&&ME.providerData.some(p=>p.providerId==='password')?'<p class="sm muted" style="margin:0">E-Mail noch nicht bestätigt (Link in deinem Postfach).</p>':''}<div><button class="btn" id="out">Abmelden</button></div></div>
+  ${LEGACY?`<div class="banner"><b>Lokale Daten gefunden</b><p class="sm muted" style="margin:4px 0 10px">Auf diesem Gerät liegen ${LEGACY.bottles.length} Flaschen aus der alten Version ohne Konto. Sie lassen sich in dein Konto übernehmen.</p><button class="btn pri" id="legacy">In mein Konto übernehmen</button></div>`:''}
+  <div class="box"><label style="margin:0">Währung</label><select id="cur">${['CHF','EUR','USD','GBP'].map(c=>`<option ${c===D.settings.currency?'selected':''}>${c}</option>`).join('')}</select></div>
+  <div class="box"><label style="margin:0">Backup</label><p class="sm muted" style="margin:0">Deine Daten liegen in deinem Konto in der Cloud. Ein zusätzliches Backup als Datei ist trotzdem sinnvoll.</p>
+    <div class="row wrap"><button class="btn pri" id="exp">Backup exportieren (JSON)</button><button class="btn" id="imp">Backup importieren</button><button class="btn" id="csv">Sammlung als CSV</button><input type="file" id="impf" accept="application/json" hidden></div></div>
+  <div class="box"><label style="margin:0">Quellen</label><p class="sm muted" style="margin:0">Produktdaten und Bilder: Open Food Facts (Community-Datenbank, nicht jede Flasche ist vorhanden). Preise: Open Prices (Community-Meldungen) und Vergleichslinks zu Preisportalen.</p></div>
+  <div class="box"><button class="btn danger" id="wipe">Alle meine Whisky-Daten löschen</button></div></div>`;
+  $('#out').onclick=()=>signOut(auth);
+  $('#cur').onchange=e=>{D.settings.currency=e.target.value;saveSettings();render()};
+  $('#exp').onclick=()=>dl(`whisky-vault-${today()}.json`,JSON.stringify({bottles:D.bottles,sessions:D.sessions,tastings:D.tastings,settings:D.settings}),'application/json');
+  $('#imp').onclick=()=>$('#impf').click();
+  $('#impf').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const j=JSON.parse(await f.text());if(!Array.isArray(j.bottles))throw 0;if(!confirm(`${j.bottles.length} Flaschen aus dem Backup zu deinen Daten hinzufügen? Gleiche IDs werden überschrieben.`))return;await bulkSet(j);toast('Backup importiert')}catch(err){alert('Datei ist kein gültiges Backup oder Import fehlgeschlagen.')}};
+  if(LEGACY)$('#legacy').onclick=async()=>{try{await bulkSet(structuredClone(LEGACY));LEGACY=null;toast('Lokale Daten übernommen');render()}catch(e){fail(e)}};
+  $('#csv').onclick=()=>{const q=s=>`"${String(s??'').replace(/"/g,'""')}"`;const rows=[['Name','Brennerei','Alter','Alkohol','Inhalt ml','Barcode','Fuellstand %','Einstand','Note','Marktpreis','Notizen'],...D.bottles.map(b=>[b.name,b.distillery,b.age,b.abv,b.volume,b.barcode,b.fill,b.price,b.rating,b.market?.price,b.notes])];dl('whisky-sammlung.csv','\ufeff'+rows.map(r=>r.map(q).join(';')).join('\n'),'text/csv')};
+  $('#wipe').onclick=async()=>{if(confirm('Wirklich ALLE deine Flaschen, Degustationen und Bewertungen löschen? Das lässt sich nicht rückgängig machen.')){try{await wipeAll();toast('Alles gelöscht')}catch(e){fail(e)}}};
+}
+function dl(name,text,type){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
+
+/* ============ Start ============ */
+function render(){
+  const v=$('#view');
+  if(!ME){return renderAuth()}
+  v.onclick=null;v.onkeydown=null;
+  $$('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.tab===UI.tab));
+  $('#frdot').hidden=!FR.incoming.length;
+  if(UI.loading){v.innerHTML='<p class="muted">Lade deine Sammlung …</p>';return}
+  ({sammlung:rColl,degustation:rTast,kaufliste:rBuy,freunde:rFriends,konto:rAccount})[UI.tab](v);
+}
+$('#tabs').addEventListener('click',e=>{const b=e.target.closest('button');if(b){if(UI.tab!==b.dataset.tab)UI.friend=null;UI.tab=b.dataset.tab;render();scrollTo(0,0)}});
+
+if(!CONFIGURED){$('#tabs').hidden=true;renderAuth()}
+else onAuthStateChanged(auth,async u=>{
+  stopListeners();ME=u;PROFILE=null;D=blankD();FR=blankFR();UI.friend=null;UI.loading=true;LEGACY=null;
+  $('#tabs').hidden=!u;
+  $('#chip').textContent=u?(u.displayName||u.email||''):'';
+  if(!u){renderAuth();return}
+  render();
+  await ensureProfile();
+  startListeners();
+  try{const l=await LocalDB.get('data');if(l&&Array.isArray(l.bottles)&&l.bottles.length){LEGACY=l;toast('Lokale Daten der alten Version gefunden – siehe Tab «Konto».')}}catch{}
+});
+</script>
+</body>
+</html>
