@@ -115,6 +115,9 @@ label{display:block;font-size:.85rem;color:var(--mute);margin:0 0 4px}
 @media(max-width:520px){.g3{grid-template-columns:1fr 1fr}}
 .imgrow{display:flex;gap:12px;align-items:center}
 .imgrow .pic{width:120px;aspect-ratio:3/4;border-radius:10px;overflow:hidden;font-size:2.4rem;flex:none}
+.crop{width:min(100%,300px);aspect-ratio:3/4;margin:0 auto;position:relative;overflow:hidden;background:#0e1916;border:1px solid var(--line);border-radius:12px;touch-action:none;cursor:grab;user-select:none;-webkit-user-select:none}
+.crop:active{cursor:grabbing}
+.crop img{position:absolute;left:0;top:0;max-width:none;transform-origin:0 0;pointer-events:none;-webkit-user-drag:none}
 .stack{display:flex;flex-direction:column;gap:8px;flex:1;min-width:0}
 .stack .btn{width:100%;white-space:normal}
 .note{background:var(--glass3);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:.9rem}
@@ -364,8 +367,10 @@ function fileToDataURL(file,max=480){
     img.onload=()=>{const s=Math.min(1,max/Math.max(img.width,img.height));const c=document.createElement('canvas');c.width=Math.round(img.width*s);c.height=Math.round(img.height*s);c.getContext('2d').drawImage(img,0,0,c.width,c.height);URL.revokeObjectURL(u);res(c.toDataURL('image/jpeg',.78))};
     img.onerror=()=>{URL.revokeObjectURL(u);rej(new Error('Bild nicht lesbar'))};img.src=u});
 }
-function priceLinks(name,code){
-  const q=encodeURIComponent((name||'').trim());
+function priceLinks(name,code,brand){
+  let n=(name||'').trim();const br=(brand||'').trim();
+  if(br&&!flat(n).includes(flat(br)))n=(br+' '+n).trim();
+  const q=encodeURIComponent(n);
   const L=[
     ['Google Shopping',`https://www.google.com/search?tbm=shop&q=${q}`],
     ['toppreise.ch',`https://www.toppreise.ch/produktsuche?q=${q}`],
@@ -374,6 +379,50 @@ function priceLinks(name,code){
   ];
   if(code)L.push(['Barcode bei Google',`https://www.google.com/search?tbm=shop&q=${encodeURIComponent(code)}`]);
   return L.map(([t,u])=>`<a href="${u}" target="_blank" rel="noopener">${t}</a>`).join('');
+}
+/* Bild ausrichten: ziehen = verschieben, Regler / Mausrad / zwei Finger = zoomen */
+function editImage(src){
+  return new Promise(resolve=>{
+    const d=modal(`<div class="mhead"><h2>Bild ausrichten</h2><button class="x" data-close aria-label="Schliessen">✕</button></div>
+    <p class="muted sm" style="margin:0">Ziehe das Bild, bis das Etikett im Rahmen sitzt. Zoomen mit dem Regler oder zwei Fingern.</p>
+    <div class="crop" data-f><img alt=""></div>
+    <input type="range" min="0.5" max="5" step="0.01" value="1" data-z aria-label="Zoom">
+    <div class="row wrap sb"><button class="btn ghost" data-reset>Zurücksetzen</button><div class="row wrap"><button class="btn ghost" data-close>Abbrechen</button><button class="btn pri" data-ok>Übernehmen</button></div></div>`);
+    let done=false;const finish=v=>{if(done)return;done=true;resolve(v);if(d.open)d.close()};
+    d.addEventListener('close',()=>finish(null));
+    const fr=$('[data-f]',d),im=$('img',fr),z=$('[data-z]',d);
+    let W=0,H=0,nw=0,nh=0,s0=1,zoom=1,x=0,y=0;
+    const sc=()=>s0*zoom;
+    const clamp=()=>{const w=nw*sc(),h=nh*sc();x=Math.min(W-w*.2,Math.max(-w*.8,x));y=Math.min(H-h*.2,Math.max(-h*.8,y))};
+    const draw=()=>{clamp();im.style.transform=`translate(${x}px,${y}px) scale(${sc()})`;z.value=zoom};
+    const reset=()=>{zoom=1;x=(W-nw*s0)/2;y=(H-nh*s0)/2;draw()};
+    const zoomAt=(nz,cx,cy)=>{nz=Math.min(5,Math.max(.5,nz));const r=nz/zoom;x=cx-(cx-x)*r;y=cy-(cy-y)*r;zoom=nz;draw()};
+    im.onload=()=>{W=fr.clientWidth;H=fr.clientHeight;nw=im.naturalWidth;nh=im.naturalHeight;im.style.width=nw+'px';im.style.height=nh+'px';s0=Math.min(W/nw,H/nh);reset()};
+    im.onerror=()=>{alert('Bild kann nicht bearbeitet werden.');finish(null)};
+    if(/^https?:/.test(src))im.crossOrigin='anonymous';
+    im.src=src;
+    z.oninput=()=>zoomAt(Number(z.value),W/2,H/2);
+    $('[data-reset]',d).onclick=reset;
+    const ptr=new Map();let pd=0;
+    fr.addEventListener('pointerdown',e=>{fr.setPointerCapture(e.pointerId);ptr.set(e.pointerId,{x:e.clientX,y:e.clientY});pd=0});
+    fr.addEventListener('pointermove',e=>{
+      const p=ptr.get(e.pointerId);if(!p)return;
+      const dx=e.clientX-p.x,dy=e.clientY-p.y;p.x=e.clientX;p.y=e.clientY;
+      if(ptr.size===1){x+=dx;y+=dy;draw()}
+      else if(ptr.size===2){const [a,b]=[...ptr.values()];const dist=Math.hypot(a.x-b.x,a.y-b.y);const r=fr.getBoundingClientRect();if(pd)zoomAt(zoom*dist/pd,(a.x+b.x)/2-r.left,(a.y+b.y)/2-r.top);pd=dist}
+    });
+    const up=e=>{ptr.delete(e.pointerId);pd=0};
+    fr.addEventListener('pointerup',up);fr.addEventListener('pointercancel',up);
+    fr.addEventListener('wheel',e=>{e.preventDefault();const r=fr.getBoundingClientRect();zoomAt(zoom*(e.deltaY<0?1.1:1/1.1),e.clientX-r.left,e.clientY-r.top)},{passive:false});
+    $('[data-ok]',d).onclick=()=>{
+      try{
+        const k=480/W,c=document.createElement('canvas');c.width=480;c.height=Math.round(H*k);
+        const g=c.getContext('2d');g.fillStyle='#0e1916';g.fillRect(0,0,c.width,c.height);
+        g.drawImage(im,x*k,y*k,nw*sc()*k,nh*sc()*k);
+        finish(c.toDataURL('image/jpeg',.82));
+      }catch{alert('Bild kann nicht bearbeitet werden.');finish(null)}
+    };
+  });
 }
 
 /* ============ Dialoge ============ */
@@ -417,13 +466,13 @@ async function lookupInto(el,q,onPick){
     $$('.res',el).forEach(b=>b.onclick=()=>onPick(items[b.dataset.i]));
   }catch(e){el.innerHTML=`<div class="note bad"><b>Suche nicht erreichbar.</b> ${esc(e.message)}. Prüfe deine Verbindung oder trage die Daten von Hand ein.<div class="row" style="margin-top:8px"><button class="btn" data-retry>Nochmals versuchen</button></div></div>`;$('[data-retry]',el).onclick=()=>lookupInto(el,q,onPick)}
 }
-function priceBox(d,{getName,getCode,onApply}){
-  const refresh=()=>{$('[data-plinks]',d).innerHTML=priceLinks(getName(),getCode())};
+function priceBox(d,{getName,getCode,getBrand,onApply}){
+  const refresh=()=>{$('[data-plinks]',d).innerHTML=priceLinks(getName(),getCode(),getBrand?.())};
   refresh();
-  d.addEventListener('input',e=>{if(e.target.name==='name'||e.target.name==='barcode')refresh()});
+  d.addEventListener('input',e=>{if(['name','barcode','distillery'].includes(e.target.name))refresh()});
   $('[data-a=pfind]',d).onclick=async()=>{
     const out=$('[data-pout]',d),code=getCode();refresh();
-    if(!code){out.innerHTML='Die automatische Suche braucht einen Barcode. Nutze die Vergleichslinks unten und trage den günstigsten Preis von Hand ein.';return}
+    if(!code){out.innerHTML='Die automatische Suche braucht einen Barcode. Öffne unten „Google Shopping“ (Marke und Name sind schon eingesetzt) und trage den günstigsten Preis von Hand ein.';return}
     out.textContent='Suche Preise …';
     try{
       const all=await openPrices(code),cur=D.settings.currency;
@@ -531,7 +580,7 @@ function openBottle(id,pre){
   const b=id?structuredClone(D.bottles.find(x=>x.id===id)):Object.assign({id:uid(),name:'',distillery:'',age:null,abv:null,volume:700,barcode:'',image:'',fill:100,price:null,rating:null,notes:'',market:null,added:Date.now()},pre||{});
   const d=modal(`<div class="mhead"><h2>${isNew?'Whisky hinzufügen':'Whisky bearbeiten'}</h2><button class="x" data-close aria-label="Schliessen">✕</button></div>
   <div class="box"><label style="margin:0">Online abgleichen</label><div class="row"><input name="q" placeholder="Name oder Barcode (EAN)" enterkeyhint="search" style="min-width:0"><button class="btn" data-a="search">Suchen</button><button class="btn" data-a="scan" title="Barcode scannen" aria-label="Barcode scannen">📷</button></div><div class="results" data-r></div></div>
-  <div class="imgrow"><div class="pic" data-pic></div><div class="stack"><button class="btn" data-a="photo">Foto wählen / aufnehmen</button><button class="btn ghost" data-a="rmimg">Bild entfernen</button><input type="file" accept="image/*" hidden data-file></div></div>
+  <div class="imgrow"><div class="pic" data-pic></div><div class="stack"><button class="btn" data-a="photo">Foto wählen / aufnehmen</button><button class="btn" data-a="crop">Bild ausrichten</button><button class="btn ghost" data-a="rmimg">Bild entfernen</button><input type="file" accept="image/*" hidden data-file></div></div>
   <div><label>Name</label><input name="name" value="${esc(b.name)}" placeholder="z. B. Lagavulin 16"></div>
   <div class="g2"><div><label>Brennerei / Marke</label><input name="distillery" value="${esc(b.distillery)}"></div><div><label>Barcode</label><input name="barcode" inputmode="numeric" value="${esc(b.barcode)}"></div></div>
   <div class="g3"><div><label>Alter (Jahre)</label><input name="age" type="number" min="0" value="${b.age??''}"></div><div><label>Alkohol (% vol)</label><input name="abv" type="number" step="0.1" value="${b.abv??''}"></div><div><label>Inhalt (ml)</label><input name="volume" type="number" value="${b.volume??''}"></div></div>
@@ -541,7 +590,7 @@ function openBottle(id,pre){
   <div><label>Notizen (für Freunde sichtbar, wenn du teilst)</label><textarea name="notes">${esc(b.notes)}</textarea></div>
   <div class="row sb"><div>${isNew?'':'<button class="btn danger" data-a="del">Löschen</button>'}</div><div class="row"><button class="btn ghost" data-close>Abbrechen</button><button class="btn pri" data-a="save">Speichern</button></div></div>`);
   const f=n=>d.querySelector(`[name=${n}]`);
-  let img=b.image;
+  let img=b.image,src0=b.image;
   const pic=()=>{$('[data-pic]',d).innerHTML=img?`<img src="${esc(img)}" alt="">`:'🥃'};pic();
   if(b.market?.price!=null)f('mprice').value=b.market.price;
   f('fill').oninput=()=>$('[data-fv]',d).textContent=f('fill').value+'%';
@@ -549,18 +598,19 @@ function openBottle(id,pre){
     f('name').value=it.name;f('distillery').value=it.distillery||f('distillery').value;f('barcode').value=it.barcode||'';
     if(it.abv)f('abv').value=it.abv;if(it.volume)f('volume').value=it.volume;
     $('[data-r]',d).innerHTML='<p class="muted">Übernommen, Bild wird geladen …</p>';
-    img=await cacheImage(it.image)||img;pic();$('[data-r]',d).innerHTML='<p class="ok sm">Daten übernommen. Prüfe sie kurz und ergänze Preis und Note.</p>';
+    img=await cacheImage(it.image)||img;src0=img;pic();$('[data-r]',d).innerHTML='<p class="ok sm">Daten übernommen. Prüfe sie kurz und ergänze Preis und Note.</p>';
     f('name').dispatchEvent(new Event('input',{bubbles:true}));
   };
   const search=()=>lookupInto($('[data-r]',d),f('q').value,pick);
   f('q').addEventListener('keydown',e=>{if(e.key==='Enter')search()});
-  priceBox(d,{getName:()=>f('name').value,getCode:()=>f('barcode').value.trim(),onApply:p=>{f('mprice').value=p}});
+  priceBox(d,{getName:()=>f('name').value,getCode:()=>f('barcode').value.trim(),getBrand:()=>f('distillery').value,onApply:p=>{f('mprice').value=p}});
   d.addEventListener('click',async e=>{
     const a=e.target.closest('[data-a]')?.dataset.a;if(!a)return;
     if(a==='search')search();
     if(a==='scan'){const c=await scanBarcode();if(c){f('q').value=c;search()}}
     if(a==='photo')$('[data-file]',d).click();
-    if(a==='rmimg'){img='';pic()}
+    if(a==='rmimg'){img='';src0='';pic()}
+    if(a==='crop'&&img){const o=await editImage(src0||img);if(o){img=o;pic()}}
     if(a==='del'&&confirm('Diese Flasche wirklich löschen?')){D.tastings.filter(t=>t.bottleId===b.id).forEach(t=>put('tastings',{...t,bottleId:null}));del('bottles',b.id);d.close()}
     if(a==='save'){
       const name=f('name').value.trim();if(!name){f('name').focus();return}
@@ -570,7 +620,7 @@ function openBottle(id,pre){
       put('bottles',b);d.close();
     }
   });
-  $('[data-file]',d).onchange=async e=>{const file=e.target.files[0];if(file){try{img=await fileToDataURL(file);pic()}catch(err){alert(err.message)}}};
+  $('[data-file]',d).onchange=async e=>{const file=e.target.files[0];e.target.value='';if(!file)return;try{src0=await fileToDataURL(file,1000);img=(await editImage(src0))||await fileToDataURL(file);pic()}catch(err){alert(err.message)}};
 }
 
 /* ============ Degustation ============ */
@@ -624,7 +674,7 @@ function addTasting(w,bottleId){
 function openTasting(id){
   const orig=D.tastings.find(x=>x.id===id);if(!orig)return;const t=structuredClone(orig);
   const d=modal(`<div class="mhead"><h2>Bewertung</h2><button class="x" data-close aria-label="Schliessen">✕</button></div>
-  <div class="imgrow"><div class="pic" data-pic></div><div class="stack"><div><label>Name</label><input name="name" value="${esc(t.whisky.name)}"></div><div><label>Barcode</label><input name="barcode" inputmode="numeric" value="${esc(t.whisky.barcode)}"></div><button class="btn" data-a="photo">Foto wählen / aufnehmen</button><input type="file" accept="image/*" hidden data-file></div></div>
+  <div class="imgrow"><div class="pic" data-pic></div><div class="stack"><div><label>Name</label><input name="name" value="${esc(t.whisky.name)}"></div><div><label>Barcode</label><input name="barcode" inputmode="numeric" value="${esc(t.whisky.barcode)}"></div><button class="btn" data-a="photo">Foto wählen / aufnehmen</button><button class="btn" data-a="crop">Bild ausrichten</button><input type="file" accept="image/*" hidden data-file></div></div>
   <div><label>Punkte (0–100)</label><div class="row"><input name="score" type="range" min="0" max="100" step="1" value="${t.score??75}"><span class="range-val" data-sv>${t.score??'–'}</span></div><div class="sm muted">Regler bewegen, um eine Note zu setzen.</div></div>
   <div><label>Geschmacksrichtung</label><div class="chips">${TAGS.map(g=>`<button class="chip ${(t.tags||[]).includes(g)?'on':''}" data-tag="${g}">${g}</button>`).join('')}</div></div>
   <div><label>Nase</label><textarea name="nose">${esc(t.nose)}</textarea></div>
@@ -635,11 +685,11 @@ function openTasting(id){
     ${t.bottleId?'<button class="btn" data-a="tobottle">Note in Sammlung übernehmen</button>':'<button class="btn" data-a="tocoll">In Sammlung übernehmen</button>'}
     <button class="btn pri" data-a="save">Speichern</button></div></div>`);
   const f=n=>d.querySelector(`[name=${n}]`);
-  let img=t.whisky.image,touched=t.score!=null,buy=t.buy;
+  let img=t.whisky.image,src0=t.whisky.image,touched=t.score!=null,buy=t.buy;
   const pic=()=>{$('[data-pic]',d).innerHTML=img?`<img src="${esc(img)}" alt="">`:'🥃'};pic();
   if(t.price!=null)f('mprice').value=t.price;
   f('score').oninput=()=>{touched=true;$('[data-sv]',d).textContent=f('score').value};
-  priceBox(d,{getName:()=>f('name').value,getCode:()=>f('barcode').value.trim(),onApply:p=>{f('mprice').value=p}});
+  priceBox(d,{getName:()=>f('name').value,getCode:()=>f('barcode').value.trim(),getBrand:()=>t.whisky.distillery,onApply:p=>{f('mprice').value=p}});
   $$('.chip',d).forEach(c=>c.onclick=()=>{c.classList.toggle('on')});
   $$('[data-buy] button',d).forEach(b=>b.onclick=()=>{buy=buy===b.dataset.v?'':b.dataset.v;$$('[data-buy] button',d).forEach(x=>x.classList.toggle('on',x.dataset.v===buy))});
   const collect=()=>{
@@ -648,15 +698,16 @@ function openTasting(id){
     t.nose=f('nose').value.trim();t.palate=f('palate').value.trim();t.finish=f('finish').value.trim();t.buy=buy;
     const p=num(f('mprice').value);if(p!==t.price){t.price=p;t.priceDate=p==null?null:today()}
   };
-  d.addEventListener('click',e=>{
+  d.addEventListener('click',async e=>{
     const a=e.target.closest('[data-a]')?.dataset.a;if(!a)return;
     if(a==='photo')$('[data-file]',d).click();
+    if(a==='crop'&&img){const o=await editImage(src0||img);if(o){img=o;pic()}}
     if(a==='save'){collect();put('tastings',t);d.close()}
     if(a==='del'&&confirm('Bewertung löschen?')){del('tastings',t.id);d.close()}
     if(a==='tobottle'){collect();put('tastings',t);const b=D.bottles.find(x=>x.id===t.bottleId);if(b&&t.score!=null)put('bottles',{...b,rating:t.score});d.close()}
     if(a==='tocoll'){collect();put('tastings',t);d.close();addToCollection(t.id)}
   });
-  $('[data-file]',d).onchange=async e=>{const file=e.target.files[0];if(file){try{img=await fileToDataURL(file);pic()}catch(err){alert(err.message)}}};
+  $('[data-file]',d).onchange=async e=>{const file=e.target.files[0];e.target.value='';if(!file)return;try{src0=await fileToDataURL(file,1000);img=(await editImage(src0))||await fileToDataURL(file);pic()}catch(err){alert(err.message)}};
 }
 function addToCollection(tid){
   const t=D.tastings.find(x=>x.id===tid);if(!t)return;
@@ -759,7 +810,7 @@ function friendBottle(b,owner){
   modal(`<div class="mhead"><h2>${esc(b.name)}</h2><button class="x" data-close aria-label="Schliessen">✕</button></div>
   <div class="imgrow"><div class="pic">${b.image?`<img src="${esc(b.image)}" alt="">`:'🥃'}<div class="gauge"><i style="height:${b.fill}%"></i></div></div><div class="stack"><span class="muted">${esc([b.distillery,b.age?b.age+' Jahre':'',b.abv?b.abv+' %':'',b.volume?b.volume+' ml':''].filter(Boolean).join(' · '))}</span><span>Füllstand: <b>${b.fill}%</b></span><span>Note von ${esc(owner||'Freund')}: <b style="color:${b.rating!=null?scoreColor(b.rating):'inherit'}">${b.rating??'–'}</b></span>${iHave(b)?'<span class="pill ja">hast du auch</span>':''}</div></div>
   ${b.notes?`<div class="box"><label style="margin:0">Notizen</label><div style="white-space:pre-wrap">${esc(b.notes)}</div></div>`:''}
-  <div class="box"><label style="margin:0">Preis prüfen</label><div class="links">${priceLinks(b.name,b.barcode)}</div></div>`);
+  <div class="box"><label style="margin:0">Preis prüfen</label><div class="links">${priceLinks(b.name,b.barcode,b.distillery)}</div></div>`);
 }
 
 /* ============ Konto ============ */
