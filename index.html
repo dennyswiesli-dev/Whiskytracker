@@ -281,28 +281,75 @@ function mapOff(p){
   const thumb=p.image_front_small_url||p.image_small_url||img;
   return{name:p.product_name||'(ohne Name)',distillery:(brand||'').trim(),barcode:String(p.code||''),image:img,thumb,abv:abv?Math.round(abv*10)/10:null,volume:parseVol(Array.isArray(p.quantity)?p.quantity[0]:p.quantity)};
 }
+/* Bekannte Marken, die oft zusammengeschrieben werden ("Glenmoray" -> "Glen Moray") */
+const BRANDS=['Glen Moray','Glen Grant','Glen Scotia','Glen Garioch','Glen Elgin','Glen Ord','Glen Spey','Glen Keith','Glen Deveron','Old Pulteney','Old Fitzgerald','Royal Lochnagar','Royal Brackla','Highland Park','Johnnie Walker','Jack Daniels','Jim Beam','Makers Mark','Wild Turkey','Four Roses','Captain Morgan','Port Charlotte','Port Ellen','Ben Nevis','Loch Lomond','Black Bottle','Monkey Shoulder','Western Gold','Tullamore Dew','Isle of Jura','Isle of Skye','Bank Note','Dewars','Chivas Regal','Ballantines','Cutty Sark','Famous Grouse','Grants','Teachers','Bell s'];
+const flat=t=>String(t).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]/g,'');
+function queryVariants(q){
+  const out=[q];const f=flat(q);
+  for(const b of BRANDS){const bf=flat(b);if(f.startsWith(bf)&&!q.toLowerCase().startsWith(b.toLowerCase())){let n=0,i=0;while(i<q.length&&n<bf.length){if(/[a-z0-9]/i.test(q[i]))n++;i++}out.push((b+' '+q.slice(i)).replace(/\s+/g,' ').trim());break}}
+  const w=out[out.length-1].split(/\s+/);
+  for(let n=Math.min(w.length-1,3);n>=1;n--){const t=w.slice(0,n).join(' ');if(n>1||t.length>=6)out.push(t)}
+  return[...new Set(out.map(x=>x.trim()).filter(Boolean))];
+}
+const sameItem=(a,b)=>(a.barcode&&a.barcode===b.barcode)||flat(a.name)===flat(b.name);
+function dedupe(list){const r=[];for(const it of list)if(!r.some(x=>sameItem(x,it)))r.push(it);return r}
+
 async function offByCode(code){
   let last;
   for(const u of[`https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(code)}.json?fields=${OFF_FIELDS}`,`https://world.openfoodfacts.org/api/v0/product/${encodeURIComponent(code)}.json`]){
-    try{const j=await getJSON(u);if(j.status===1&&j.product)return mapOff({...j.product,code:j.product.code||code})}catch(e){last=e}
+    try{const j=await getJSON(u);if(j.status===1&&j.product)return{...mapOff({...j.product,code:j.product.code||code}),src:'Open Food Facts'}}catch(e){last=e}
   }
   if(last)throw last;return null;
 }
+/* Quelle 2: UPCitemdb (kostenlose Testschnittstelle, ohne Schlüssel) */
+function mapUpc(p){
+  const img=(p.images||[])[0]||'';
+  return{name:p.title||'(ohne Name)',distillery:p.brand||'',barcode:String(p.ean||p.upc||''),image:img,thumb:img,abv:null,volume:parseVol(p.size),src:'UPCitemdb'};
+}
+async function upcByCode(code){
+  const j=await getJSON(`https://api.upcitemdb.com/prod/trial/lookup?upc=${encodeURIComponent(code)}`);
+  return (j.items||[]).length?mapUpc(j.items[0]):null;
+}
+async function upcSearch(q){
+  const j=await getJSON(`https://api.upcitemdb.com/prod/trial/search?s=${encodeURIComponent(q+' whisky')}&match_mode=0&type=product`);
+  return (j.items||[]).map(mapUpc);
+}
+/* Quelle 3: Wikidata (Marken/Brennereien, liefert Namen, keine Barcodes) */
+async function wikiSearch(q){
+  const j=await getJSON(`https://www.wikidata.org/w/api.php?action=wbsearchentities&search=${encodeURIComponent(q)}&language=de&uselang=de&type=item&limit=10&format=json&origin=*`);
+  return (j.search||[]).filter(e=>/whisk|distill|brenner|destill|spirit|bourbon|scotch|rum\b|brand/i.test(e.description||'')).map(e=>({name:e.label,distillery:e.label,barcode:'',image:'',thumb:'',abv:null,volume:null,src:'Wikidata',note:e.description||''}));
+}
+async function codeLookup(code){
+  const rs=await Promise.allSettled([offByCode(code),upcByCode(code)]);
+  const hit=rs.map(r=>r.value).find(Boolean);
+  if(hit)return[hit];
+  if(rs.every(r=>r.status==='rejected'))throw rs[0].reason;
+  return[];
+}
 async function offSearch(q){
   const clean=q.replace(/[()"\[\]{}:]/g,' ').replace(/\s+/g,' ').trim();
-  const sal=async extra=>{
-    const j=await getJSON(`https://search.openfoodfacts.org/search?q=${encodeURIComponent((clean+' '+extra).trim())}&page_size=15&langs=de,en`);
+  const variants=queryVariants(clean);
+  const sal=async(t,cat)=>{
+    const j=await getJSON(`https://search.openfoodfacts.org/search?q=${encodeURIComponent((t+(cat?' categories_tags:"en:whiskies"':'')).trim())}&page_size=15&langs=de,en`);
     return (j.hits||[]).filter(p=>p.product_name).map(mapOff);
   };
-  const legacy=async cat=>{
-    const j=await getJSON(`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(clean)}&search_simple=1&action=process&json=1&page_size=15&fields=${OFF_FIELDS}${cat?'&tagtype_0=categories&tag_contains_0=contains&tag_0=whiskies':''}`);
+  const legacy=async t=>{
+    const j=await getJSON(`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(t)}&search_simple=1&action=process&json=1&page_size=15&fields=${OFF_FIELDS}`);
     return (j.products||[]).filter(p=>p.product_name).map(mapOff);
   };
   let err,ok=false;
-  for(const run of[()=>sal('categories_tags:"en:whiskies"'),()=>sal(''),()=>legacy(true),()=>legacy(false)]){
-    try{const r=await run();ok=true;if(r.length)return r}catch(e){err=e}
+  for(const t of variants){
+    for(const run of[()=>sal(t,true),()=>sal(t,false),()=>legacy(t)]){
+      try{const r=await run();ok=true;if(r.length)return r.map(x=>({...x,src:'Open Food Facts'}))}catch(e){err=e}
+    }
   }
   if(!ok)throw err;return[];
+}
+async function searchAll(q){
+  const variants=queryVariants(q.replace(/[()"\[\]{}:]/g,' ').replace(/\s+/g,' ').trim());
+  const rs=await Promise.allSettled([offSearch(q),upcSearch(variants[Math.min(1,variants.length-1)]),wikiSearch(variants[Math.min(1,variants.length-1)])]);
+  if(rs.every(r=>r.status==='rejected'))throw rs[0].reason;
+  return dedupe(rs.flatMap(r=>r.value||[]));
 }
 async function openPrices(code){
   const j=await getJSON(`https://prices.openfoodfacts.org/api/v1/prices?product_code=${encodeURIComponent(code)}&order_by=price&size=60`);
@@ -364,9 +411,9 @@ async function lookupInto(el,q,onPick){
   q=q.trim();if(!q)return;
   el.innerHTML='<p class="muted sm">Suche läuft …</p>';
   try{
-    const items=/^\d{8,14}$/.test(q)?[await offByCode(q)].filter(Boolean):await offSearch(q);
-    if(!items.length){el.innerHTML='<div class="note"><b>Nichts gefunden.</b> Versuche einen kürzeren Namen (z. B. „Glenmoray“), scanne den Barcode oder trage die Daten von Hand ein.</div>';return}
-    el.innerHTML=items.map((it,i)=>`<button class="res" data-i="${i}">${it.thumb?`<img src="${esc(it.thumb)}" alt="">`:'<span class="ph">🥃</span>'}<span><b>${esc(it.name)}</b><small>${esc([it.distillery,it.abv?it.abv+' %':'',it.volume?it.volume+' ml':'',it.barcode].filter(Boolean).join(' · '))}</small></span></button>`).join('');
+    const items=/^\d{8,14}$/.test(q)?await codeLookup(q):await searchAll(q);
+    if(!items.length){el.innerHTML='<div class="note"><b>Nichts gefunden.</b> Versuche nur die Marke (z. B. „Glen Moray“), scanne den Barcode oder trage die Daten von Hand ein.</div>';return}
+    el.innerHTML=items.map((it,i)=>`<button class="res" data-i="${i}">${it.thumb?`<img src="${esc(it.thumb)}" alt="">`:'<span class="ph">🥃</span>'}<span><b>${esc(it.name)}</b><small>${esc([it.note||it.distillery,it.abv?it.abv+' %':'',it.volume?it.volume+' ml':'',it.barcode,it.src].filter(Boolean).join(' · '))}</small></span></button>`).join('');
     $$('.res',el).forEach(b=>b.onclick=()=>onPick(items[b.dataset.i]));
   }catch(e){el.innerHTML=`<div class="note bad"><b>Suche nicht erreichbar.</b> ${esc(e.message)}. Prüfe deine Verbindung oder trage die Daten von Hand ein.<div class="row" style="margin-top:8px"><button class="btn" data-retry>Nochmals versuchen</button></div></div>`;$('[data-retry]',el).onclick=()=>lookupInto(el,q,onPick)}
 }
