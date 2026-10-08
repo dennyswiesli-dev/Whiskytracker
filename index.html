@@ -69,6 +69,18 @@ main{max-width:1120px;margin:0 auto;padding:28px 24px 96px}
 .row.wrap{flex-wrap:wrap}
 .row.sb{justify-content:space-between}
 .ptitle{margin:0 0 20px;font:400 1.8rem var(--serif)}
+.sub{font:400 11px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--mute);margin:28px 0 10px}
+.bars{display:flex;flex-direction:column}
+.bar{display:grid;grid-template-columns:minmax(84px,34%) 1fr auto;gap:12px;align-items:center;padding:5px 0}
+.bar .bl{font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bar .bt{height:8px;background:var(--cask3)}
+.bar .bt i{display:block;height:100%;background:var(--copper);border-radius:0 4px 4px 0}
+.bar .bv{font:400 12px var(--mono);color:var(--mute);text-align:right;white-space:nowrap}
+.bar .bv span{color:var(--line2)}
+.vrow{display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-bottom:1px solid var(--line);font-size:14px}
+.vrow:last-child{border-bottom:0}
+.vrow b{font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vrow span{font:400 12px var(--mono);white-space:nowrap}
 .btn{background:transparent;border:1px solid var(--line2);border-radius:var(--r);padding:9px 16px;cursor:pointer;white-space:nowrap;color:var(--paper)}
 .btn:hover{border-color:var(--copper)}
 .btn.pri{background:var(--copper);color:var(--ink);border-color:var(--copper);font-weight:600;letter-spacing:.02em;padding:10px 18px}
@@ -254,20 +266,21 @@ const today=()=>new Date().toISOString().slice(0,10);
 const fmtDate=d=>d?new Date(d).toLocaleDateString('de-CH'):'';
 const money=n=>(n==null||n===''||isNaN(n))?'–':new Intl.NumberFormat('de-CH',{style:'currency',currency:D.settings.currency}).format(n);
 const PH=(t='Flaschenfoto')=>`<span class="ph-l">${t}</span>`;
-const meta=b=>[b.age?b.age+' Jahre':'ohne Alter',b.abv?b.abv+' %':''].filter(Boolean).join(' · ');
+const meta=b=>[b.age?b.age+' Jahre':'ohne Alter',b.abv?b.abv+' %':'',b.region].filter(Boolean).join(' · ');
 const TAGS=['Rauchig','Torfig','Fruchtig','Süss','Würzig','Sherry','Vanille','Eiche','Maritim','Malzig','Floral','Cremig','Scharf','Bitter'];
 function toast(m){const t=$('#toast');t.textContent=m;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>t.hidden=true,4500)}
 const fail=e=>{console.error(e);toast('Speichern fehlgeschlagen: '+(e.code||e.message))};
 
 /* ============ Zustand ============ */
-const blankD=()=>({bottles:[],sessions:[],tastings:[],settings:{currency:'CHF'}});
+const blankD=()=>({bottles:[],sessions:[],tastings:[],wishlist:[],settings:{currency:'CHF'}});
 const blankFR=()=>({friends:[],incoming:[],outgoing:[],profiles:{}});
 let ME=null,PROFILE=null,D=blankD(),FR=blankFR(),LEGACY=null,unsubs=[],PENDING_NAME=null;
-let UI={tab:'sammlung',sort:'name',filter:'alle',q:'',sessionId:null,kaufMode:'kauf',loading:true,friend:null,authMode:'login'};
+let UI={tab:'sammlung',collView:'liste',sort:'name',filter:'alle',q:'',sessionId:null,kaufMode:'kauf',loading:true,friend:null,authMode:'login'};
 let raf;const sched=()=>{cancelAnimationFrame(raf);raf=requestAnimationFrame(render)};
 
 /* ============ Datenzugriff (Firestore) ============ */
-const PUB=b=>({id:b.id,name:b.name,distillery:b.distillery||'',age:b.age??null,abv:b.abv??null,volume:b.volume??null,barcode:b.barcode||'',image:b.image||'',fill:b.fill??100,rating:b.rating??null,notes:b.notes||'',added:b.added||Date.now()}); // ohne Preise!
+function isOpen(b){return b.opened??((b.fill??100)<100)}
+const PUB=b=>({id:b.id,name:b.name,distillery:b.distillery||'',age:b.age??null,abv:b.abv??null,volume:b.volume??null,barcode:b.barcode||'',image:b.image||'',fill:b.fill??100,rating:b.rating??null,notes:b.notes||'',region:b.region||'',cask:b.cask||'',bottler:b.bottler||'',opened:isOpen(b),added:b.added||Date.now()}); // ohne Preise!
 function upsert(kind,o){const a=D[kind],i=a.findIndex(x=>x.id===o.id);if(i>=0)a[i]=o;else a.push(o)}
 function put(kind,o){
   upsert(kind,o);const u=ME.uid;
@@ -283,16 +296,17 @@ function del(kind,id){
 }
 function saveSettings(){setDoc(doc(db,'users',ME.uid),{settings:D.settings},{merge:true}).catch(fail)}
 async function commitOps(ops){for(let i=0;i<ops.length;i+=400){const wb=writeBatch(db);ops.slice(i,i+400).forEach(([k,r,d])=>k==='set'?wb.set(r,d):wb.delete(r));await wb.commit()}}
-async function bulkSet({bottles=[],sessions=[],tastings=[]}){
+async function bulkSet({bottles=[],sessions=[],tastings=[],wishlist=[]}){
   const u=ME.uid,ops=[];
   bottles.forEach(b=>{b.id=b.id||uid();ops.push(['set',doc(db,'users',u,'bottles',b.id),b],['set',doc(db,'profiles',u,'shared',b.id),PUB(b)])});
   sessions.forEach(s=>{s.id=s.id||uid();ops.push(['set',doc(db,'users',u,'sessions',s.id),s])});
   tastings.forEach(t=>{t.id=t.id||uid();ops.push(['set',doc(db,'users',u,'tastings',t.id),t])});
+  wishlist.forEach(w=>{w.id=w.id||uid();ops.push(['set',doc(db,'users',u,'wishlist',w.id),w])});
   await commitOps(ops);
 }
 async function wipeAll(){
   const u=ME.uid,ops=[];
-  for(const k of['bottles','sessions','tastings'])(await getDocs(collection(db,'users',u,k))).forEach(d=>ops.push(['del',d.ref]));
+  for(const k of['bottles','sessions','tastings','wishlist'])(await getDocs(collection(db,'users',u,k))).forEach(d=>ops.push(['del',d.ref]));
   (await getDocs(collection(db,'profiles',u,'shared'))).forEach(d=>ops.push(['del',d.ref]));
   await commitOps(ops);
 }
@@ -315,6 +329,7 @@ function startListeners(){
   L(collection(db,'users',u,'bottles'),s=>{D.bottles=s.docs.map(d=>d.data());UI.loading=false;sched()});
   L(collection(db,'users',u,'sessions'),s=>{D.sessions=s.docs.map(d=>d.data());sched()});
   L(collection(db,'users',u,'tastings'),s=>{D.tastings=s.docs.map(d=>d.data());sched()});
+  L(collection(db,'users',u,'wishlist'),s=>{D.wishlist=s.docs.map(d=>d.data());sched()});
   L(query(collection(db,'friends'),where('members','array-contains',u)),async s=>{
     FR.friends=s.docs.map(d=>({pid:d.id,id:d.data().members.find(m=>m!==u)}));
     await Promise.all(FR.friends.filter(f=>!FR.profiles[f.id]).map(async f=>{try{FR.profiles[f.id]=(await getDoc(doc(db,'profiles',f.id))).data()||{}}catch{FR.profiles[f.id]={}}}));
@@ -600,6 +615,43 @@ function renderAuth(){
   v.onkeydown=e=>{if(e.key==='Enter'&&e.target.tagName==='INPUT')go()};
 }
 
+/* ============ Statistik ============ */
+function barList(rows,fmt=v=>v){
+  const m=Math.max(...rows.map(r=>r.value),1);
+  return `<div class="bars">${rows.map(r=>`<div class="bar" title="${esc(r.label+': '+fmt(r.value)+(r.sub?' · '+r.sub:''))}"><div class="bl">${esc(r.label)}</div><div class="bt"><i style="width:${Math.max(2,r.value/m*100)}%"></i></div><div class="bv">${esc(fmt(r.value))}${r.sub?` <span>·</span> ${esc(r.sub)}`:''}</div></div>`).join('')}</div>`;
+}
+function groupBy(list,key,val=()=>1){const m=new Map();list.forEach(b=>{const k=key(b);if(!k)return;m.set(k,(m.get(k)||0)+val(b))});return[...m].map(([label,value])=>({label,value}))}
+function statsHTML(){
+  const B=D.bottles;
+  if(!B.length)return '<div class="empty"><b>Noch keine Daten</b>Sobald du Flaschen erfasst hast, erscheinen hier Auswertungen.</div>';
+  const L=n=>(Math.round(n/100)/10).toLocaleString('de-CH')+' l';
+  const vol=B.reduce((s,b)=>s+(b.volume||0),0),rest=B.reduce((s,b)=>s+(b.volume||0)*(isOpen(b)?(b.fill??100):100)/100,0);
+  const priced=B.filter(b=>b.price!=null),avgP=priced.length?priced.reduce((s,b)=>s+b.price,0)/priced.length:null;
+  const open=B.filter(isOpen).length;
+  const val=b=>b.market?.price??b.price??0;
+  let h=`<section class="stats"><div class="stat"><span>Inhalt gesamt</span><b>${L(vol)}</b></div><div class="stat"><span>Noch im Regal</span><b>${L(rest)}</b></div><div class="stat"><span>Ø Preis / Flasche</span><b>${money(avgP)}</b></div><div class="stat"><span>Geöffnet / zu</span><b>${open} / ${B.length-open}</b></div></section>`;
+  const dist=groupBy(B,b=>(b.distillery||'').trim()).sort((a,b)=>b.value-a.value).slice(0,8);
+  if(dist.length)h+=`<h3 class="sub">Top Brennereien</h3>${barList(dist,v=>v+(v===1?' Flasche':' Flaschen'))}`;
+  const reg=groupBy(B,b=>(b.region||'').trim()).sort((a,b)=>b.value-a.value).slice(0,8);
+  if(reg.length){const w=groupBy(B,b=>(b.region||'').trim(),val);reg.forEach(r=>r.sub=money(w.find(x=>x.label===r.label).value));h+=`<h3 class="sub">Regionen (Anzahl · Wert)</h3>${barList(reg,v=>v+(v===1?' Flasche':' Flaschen'))}`}
+  else h+=`<h3 class="sub">Regionen</h3><p class="muted sm" style="margin:0">Trage bei den Flaschen die Region ein, dann erscheint hier die Verteilung.</p>`;
+  const tags=new Map();D.tastings.forEach(t=>(t.tags||[]).forEach(g=>tags.set(g,(tags.get(g)||0)+1)));
+  const tg=[...tags].map(([label,value])=>({label,value})).sort((a,b)=>b.value-a.value).slice(0,10);
+  if(tg.length)h+=`<h3 class="sub">Geschmacksprofil (aus ${D.tastings.length} Bewertungen)</h3>${barList(tg,v=>v+'×')}`;
+  const yr=groupBy(priced,b=>String((b.bought||'').slice(0,4)||new Date(b.added||Date.now()).getFullYear()),b=>b.price).sort((a,b)=>a.label.localeCompare(b.label));
+  if(yr.length)h+=`<h3 class="sub">Ausgaben pro Jahr</h3>${barList(yr,v=>money(v))}`;
+  const best=B.filter(b=>b.rating!=null).sort((a,b)=>b.rating-a.rating).slice(0,5).map(b=>({label:b.name,value:b.rating}));
+  if(best.length)h+=`<h3 class="sub">Beste Bewertungen</h3>${barList(best,v=>v+' Punkte')}`;
+  const dif=B.filter(b=>b.market?.price!=null&&b.price!=null).map(b=>({b,d:b.market.price-b.price})).filter(x=>x.d!==0).sort((a,b)=>b.d-a.d);
+  if(dif.length){
+    const row=x=>`<div class="vrow"><b>${esc(x.b.name)}</b><span class="${x.d>0?'up':'down'}">${x.d>0?'+':'−'}${money(Math.abs(x.d))}</span></div>`;
+    const top=dif.filter(x=>x.d>0).slice(0,3),low=dif.filter(x=>x.d<0).slice(-3).reverse();
+    if(top.length)h+=`<h3 class="sub">Grösster Wertzuwachs</h3>${top.map(row).join('')}`;
+    if(low.length)h+=`<h3 class="sub">Grösster Wertverlust</h3>${low.map(row).join('')}`;
+  }
+  return h;
+}
+
 /* ============ Sammlung ============ */
 const sorters={
   name:(a,b)=>a.name.localeCompare(b.name,'de'),
@@ -611,6 +663,8 @@ const sorters={
 };
 const FILTERS={
   alle:['Alle',()=>true],
+  offen:['Geöffnet',b=>isOpen(b)],
+  zu:['Ungeöffnet',b=>!isOpen(b)],
   leer:['Fast leer',b=>b.fill<=25],
   ohnenote:['Ohne Note',b=>b.rating==null],
   ohnepreis:['Ohne Marktpreis',b=>b.market?.price==null]
@@ -618,7 +672,10 @@ const FILTERS={
 function rColl(v){
   const n=D.bottles.length,ein=D.bottles.reduce((s,b)=>s+(b.price||0),0),wert=D.bottles.reduce((s,b)=>s+(b.market?.price??b.price??0),0);
   const rated=D.bottles.filter(b=>b.rating!=null),avg=rated.length?Math.round(rated.reduce((s,b)=>s+b.rating,0)/rated.length):null;
-  v.innerHTML=`<section class="stats">
+  const cvSeg=`<div class="seg" style="margin-bottom:22px;max-width:360px"><button class="btn ${UI.collView==='stats'?'':'on'}" data-cv="liste">Flaschen</button><button class="btn ${UI.collView==='stats'?'on':''}" data-cv="stats">Statistik</button></div>`;
+  const bindCv=()=>$$('[data-cv]',v).forEach(b=>b.onclick=()=>{UI.collView=b.dataset.cv;render()});
+  if(UI.collView==='stats'){v.innerHTML=cvSeg+statsHTML();bindCv();return}
+  v.innerHTML=cvSeg+`<section class="stats">
     <div class="stat"><span>Flaschen</span><b>${n}</b></div>
     <div class="stat"><span>Einstand</span><b>${money(ein)}</b></div>
     <div class="stat" title="Marktwert, wo bekannt, sonst Einstand"><span>Marktwert</span><b>${money(wert)}</b></div>
@@ -630,6 +687,7 @@ function rColl(v){
   $('#sort').value=UI.sort;
   $('#q').oninput=e=>{UI.q=e.target.value;fillGrid()};
   $('#sort').onchange=e=>{UI.sort=e.target.value;fillGrid()};
+  bindCv();
   $('#add').onclick=()=>openBottle();
   $('#flt').onclick=e=>{const c=e.target.closest('[data-f]');if(c){UI.filter=c.dataset.f;fillGrid()}};
   fillGrid();
@@ -637,7 +695,7 @@ function rColl(v){
 function fillGrid(){
   const q=UI.q.trim().toLowerCase();
   if(!FILTERS[UI.filter])UI.filter='alle';
-  const base=D.bottles.filter(b=>!q||[b.name,b.distillery,b.barcode,b.notes].join(' ').toLowerCase().includes(q));
+  const base=D.bottles.filter(b=>!q||[b.name,b.distillery,b.barcode,b.notes,b.region,b.cask,b.bottler,b.shop].join(' ').toLowerCase().includes(q));
   $('#flt').innerHTML=Object.entries(FILTERS).map(([k,[t,fn]])=>`<button class="chip ${UI.filter===k?'on':''}" data-f="${k}">${t}${k==='alle'?'':' ('+base.filter(fn).length+')'}</button>`).join('');
   const list=base.filter(FILTERS[UI.filter][1]).sort(sorters[UI.sort]);
   const g=$('#grid');
@@ -647,21 +705,24 @@ function fillGrid(){
     const d=(b.market?.price!=null&&b.price!=null)?b.market.price-b.price:null;
     return `<article class="card" tabindex="0" role="button" data-id="${b.id}"><div class="pic">${b.image?`<img loading="lazy" src="${esc(b.image)}" alt="">`:PH()}<div class="gauge" title="Füllstand ${b.fill}%"><i style="height:${b.fill}%"></i></div>${b.rating!=null?`<b class="score">${b.rating}</b>`:''}</div>
     <div class="cbody">${b.distillery?`<div class="dist">${esc(b.distillery)}</div>`:''}<h3>${esc(b.name)}</h3><p>${esc(meta(b))}</p>
-    <div class="cfoot"><span>${b.fill} % voll</span><span title="Einstand">${money(b.price)}</span></div>
+    <div class="cfoot"><span>${isOpen(b)?b.fill+' % voll':'ungeöffnet'}</span><span title="Einstand">${money(b.price)}</span></div>
     ${b.market?.price!=null?`<div class="mk">Markt ab <b>${money(b.market.price)}</b>${d!=null&&d!==0?` <span class="${d>0?'up':'down'}">${d>0?'+':'−'}${money(Math.abs(d))}</span>`:''}</div>`:''}</div></article>`}).join('');
   $$('.card',g).forEach(c=>c.onclick=()=>openBottle(c.dataset.id));
 }
-function openBottle(id,pre){
+function openBottle(id,pre,opts){
   const isNew=!id;
-  const b=id?structuredClone(D.bottles.find(x=>x.id===id)):Object.assign({id:uid(),name:'',distillery:'',age:null,abv:null,volume:700,barcode:'',image:'',fill:100,price:null,rating:null,notes:'',market:null,added:Date.now()},pre||{});
+  const b=id?structuredClone(D.bottles.find(x=>x.id===id)):Object.assign({id:uid(),name:'',distillery:'',age:null,abv:null,volume:700,barcode:'',image:'',fill:100,price:null,rating:null,notes:'',market:null,region:'',cask:'',bottler:'',bought:'',shop:'',opened:false,added:Date.now()},pre||{});
   const d=modal(`<div class="mhead"><h2>${isNew?'Flasche erfassen':esc(b.name)}</h2><button class="x" data-close aria-label="Schliessen">✕</button></div>
   <div class="box"><label style="margin:0">Online abgleichen</label><div class="row"><input name="q" placeholder="Name oder Barcode (EAN)" enterkeyhint="search" style="min-width:0"><button class="btn" data-a="search">Suchen</button><button class="btn" data-a="scan" title="Barcode scannen">Scannen</button></div><div class="results" data-r></div></div>
   <div class="imgrow"><div class="pic" data-pic></div><div class="stack"><button class="btn" data-a="photo">Foto wählen</button><button class="btn" data-a="crop">Bild ausrichten</button><button class="btn ghost" data-a="rmimg">Bild entfernen</button><input type="file" accept="image/*" hidden data-file></div></div>
   <div><label>Name</label><input name="name" value="${esc(b.name)}" placeholder="z. B. Lagavulin 16"></div>
   <div class="g2"><div><label>Brennerei / Marke</label><input name="distillery" value="${esc(b.distillery)}"></div><div><label>Barcode</label><input name="barcode" inputmode="numeric" value="${esc(b.barcode)}"></div></div>
   <div class="g3"><div><label>Alter (Jahre)</label><input name="age" type="number" min="0" value="${b.age??''}"></div><div><label>Alkohol (% vol)</label><input name="abv" type="number" step="0.1" value="${b.abv??''}"></div><div><label>Inhalt (ml)</label><input name="volume" type="number" value="${b.volume??''}"></div></div>
+  <div class="g2"><div><label>Region / Land</label><input name="region" list="dl-region" value="${esc(b.region||'')}" placeholder="z. B. Speyside"><datalist id="dl-region">${['Speyside','Islay','Highlands','Lowlands','Campbeltown','Islands','Irland','USA','Japan','Schweiz','Indien','Taiwan','Andere'].map(x=>`<option value="${x}">`).join('')}</datalist></div><div><label>Fassart</label><input name="cask" list="dl-cask" value="${esc(b.cask||'')}" placeholder="z. B. Sherry"><datalist id="dl-cask">${['Bourbon','Sherry','Port','Wein','Rum','Madeira','Mizunara','Mehrere Fässer'].map(x=>`<option value="${x}">`).join('')}</datalist></div></div>
+  <div class="g2"><div><label>Abfüller</label><input name="bottler" value="${esc(b.bottler||'')}" placeholder="z. B. Original"></div><div><label>Status</label><select name="opened"><option value="0">Ungeöffnet</option><option value="1">Geöffnet</option></select></div></div>
   <div><label>Füllstand</label><div class="row"><input name="fill" type="range" min="0" max="100" step="5" value="${b.fill}"><span class="range-val" data-fv>${b.fill} %</span></div></div>
   <div class="g2"><div><label>Einstandspreis (privat)</label><input name="price" type="number" step="0.05" min="0" inputmode="decimal" value="${b.price??''}"></div><div><label>Note (0–100)</label><input name="rating" type="number" min="0" max="100" inputmode="numeric" value="${b.rating??''}" placeholder="–"></div></div>
+  <div class="g2"><div><label>Kaufdatum (privat)</label><input name="bought" type="date" value="${esc(b.bought||'')}"></div><div><label>Gekauft bei (privat)</label><input name="shop" value="${esc(b.shop||'')}" placeholder="z. B. Händler, Ort"></div></div>
   ${PRICE_HTML('Aktueller Marktpreis (privat)')}
   <div><label>Notizen (für Freunde sichtbar, wenn du teilst)</label><textarea name="notes">${esc(b.notes)}</textarea></div>
   <div class="row sb"><div>${isNew?'':'<button class="btn danger" data-a="del">Löschen</button>'}</div><div class="row"><button class="btn ghost" data-close>Abbrechen</button><button class="btn pri" data-a="save">Speichern</button></div></div>`);
@@ -673,7 +734,9 @@ function openBottle(id,pre){
   d.addEventListener('cancel',e=>{if(!guard())e.preventDefault()});
   d.addEventListener('click',e=>{if(e.target.closest('[data-close]')&&!guard())e.stopPropagation()},true);
   if(b.market?.price!=null)f('mprice').value=b.market.price;
-  f('fill').oninput=()=>$('[data-fv]',d).textContent=f('fill').value+' %';
+  f('opened').value=isOpen(b)?'1':'0';
+  f('fill').oninput=()=>{$('[data-fv]',d).textContent=f('fill').value+' %';if(Number(f('fill').value)<100)f('opened').value='1'};
+  f('opened').onchange=()=>{if(f('opened').value==='0'){f('fill').value=100;$('[data-fv]',d).textContent='100 %'}};
   const pick=async it=>{
     f('name').value=it.name;f('distillery').value=it.distillery||f('distillery').value;f('barcode').value=it.barcode||'';
     if(it.abv)f('abv').value=it.abv;if(it.volume)f('volume').value=it.volume;
@@ -695,10 +758,10 @@ function openBottle(id,pre){
     if(a==='save'){
       const name=f('name').value.trim();if(!name){f('name').focus();return}
       const mp=num(f('mprice').value);
-      Object.assign(b,{name,distillery:f('distillery').value.trim(),barcode:f('barcode').value.trim(),age:num(f('age').value),abv:num(f('abv').value),volume:num(f('volume').value),fill:Number(f('fill').value),price:num(f('price').value),rating:num(f('rating').value),notes:f('notes').value.trim(),image:img});
+      Object.assign(b,{name,distillery:f('distillery').value.trim(),barcode:f('barcode').value.trim(),age:num(f('age').value),abv:num(f('abv').value),volume:num(f('volume').value),fill:Number(f('fill').value),price:num(f('price').value),rating:num(f('rating').value),notes:f('notes').value.trim(),image:img,region:f('region').value.trim(),cask:f('cask').value.trim(),bottler:f('bottler').value.trim(),bought:f('bought').value,shop:f('shop').value.trim(),opened:f('opened').value==='1'});
       if(isNew){const dup=D.bottles.find(x=>(b.barcode&&x.barcode===b.barcode)||x.name.trim().toLowerCase()===name.toLowerCase());if(dup&&!confirm(`«${dup.name}» ist schon in deiner Sammlung. Trotzdem als weitere Flasche speichern?`))return}
       if(mp==null)b.market=null;else if(b.market?.price!==mp)b.market={price:mp,date:today(),source:'manuell'};
-      put('bottles',b);d.close();
+      put('bottles',b);d.close();opts?.onSaved?.();
     }
   });
   $('[data-file]',d).onchange=async e=>{const file=e.target.files[0];e.target.value='';if(!file)return;try{src0=await fileToDataURL(file,1000);img=(await editImage(src0))||await fileToDataURL(file);pic()}catch(err){alert(err.message)}};
@@ -797,17 +860,62 @@ function addToCollection(tid){
 }
 
 /* ============ Kaufliste ============ */
+function wishRow(w){
+  const reached=w.seen!=null&&w.target!=null&&w.seen<=w.target;
+  const info=[w.distillery,w.target!=null?'Ziel '+money(w.target):'',w.seen!=null?'zuletzt '+money(w.seen):''].filter(Boolean).join(' · ');
+  return `<div class="item" tabindex="0" role="button" data-w="${w.id}"><div class="th">${w.image?`<img src="${esc(w.image)}" alt="">`:''}</div><div class="mid"><b>${esc(w.name)}</b><span class="muted sm">${esc(info)}</span><div>${w.prio==='hoch'?'<span class="pill vielleicht">Hohe Priorität</span>':''}${reached?'<span class="pill ja">Zielpreis erreicht</span>':''}</div></div></div>`;
+}
 function rBuy(v){
   const all=UI.kaufMode==='alle';
   let list=D.tastings.filter(t=>all?true:(!t.bottleId&&(t.buy==='ja'||t.buy==='vielleicht')));
   list.sort((a,b)=>(all?0:((b.buy==='ja')-(a.buy==='ja')))||(b.score??-1)-(a.score??-1));
-  v.innerHTML=`<h2 class="ptitle">${all?'Alle Bewertungen':'Kaufliste'}</h2><div class="tools"><div class="seg" style="flex:1"><button class="btn ${all?'':'on'}" data-m="kauf">Kaufliste</button><button class="btn ${all?'on':''}" data-m="alle">Alle Bewertungen</button></div></div>
-  ${list.length?`<div class="rows">${list.map((t,i)=>{
+  const wl=all?[]:D.wishlist.slice().sort((a,b)=>((b.prio==='hoch')-(a.prio==='hoch'))||(b.added||0)-(a.added||0));
+  const rowT=(t,i)=>{
     const ses=D.sessions.find(s=>s.id===t.sessionId);
-    return `<div class="item" tabindex="0" role="button" data-id="${t.id}"><div class="rank">${i+1}</div><div class="th">${t.whisky.image?`<img src="${esc(t.whisky.image)}" alt="">`:''}</div><div class="mid"><b>${esc(t.whisky.name)}</b><span class="muted sm">${esc([ses?.name,t.price!=null?'ab '+money(t.price):''].filter(Boolean).join(' · '))}</span><div>${t.buy?`<span class="pill ${t.buy}">${{ja:'Kaufen',vielleicht:'Vielleicht',nein:'Nein'}[t.buy]}</span>`:''}${t.bottleId?'<span class="pill">in Sammlung</span>':''}</div></div><div class="bigscore${t.score==null?' none':''}">${t.score??'–'}</div></div>`}).join('')}</div>`
-  :`<div class="empty"><b>${all?'Noch keine Bewertungen':'Die Kaufliste ist leer'}</b>${all?'Bewerte Whiskys im Tab Degustation.':'Whiskys, bei denen du „Ja“ oder „Vielleicht“ wählst, landen hier – sortiert nach Note. Tippe einen Eintrag an, um den aktuellen Marktpreis zu prüfen.'}</div>`}`;
+    return `<div class="item" tabindex="0" role="button" data-id="${t.id}"><div class="rank">${i+1}</div><div class="th">${t.whisky.image?`<img src="${esc(t.whisky.image)}" alt="">`:''}</div><div class="mid"><b>${esc(t.whisky.name)}</b><span class="muted sm">${esc([ses?.name,t.price!=null?'ab '+money(t.price):''].filter(Boolean).join(' · '))}</span><div>${t.buy?`<span class="pill ${t.buy}">${{ja:'Kaufen',vielleicht:'Vielleicht',nein:'Nein'}[t.buy]}</span>`:''}${t.bottleId?'<span class="pill">in Sammlung</span>':''}</div></div><div class="bigscore${t.score==null?' none':''}">${t.score??'–'}</div></div>`};
+  let body='';
+  if(all)body=list.length?`<div class="rows">${list.map(rowT).join('')}</div>`:'<div class="empty"><b>Noch keine Bewertungen</b>Bewerte Whiskys im Tab Degustation.</div>';
+  else if(!wl.length&&!list.length)body='<div class="empty"><b>Die Kaufliste ist leer</b>Tippe auf „+ Wunsch“, um einen Whisky vorzumerken. Whiskys, bei denen du in einer Degustation „Ja“ oder „Vielleicht“ wählst, landen ebenfalls hier.</div>';
+  else body=(wl.length?`<h3 class="sub" style="margin-top:0">Meine Wunschliste</h3><div class="rows">${wl.map(wishRow).join('')}</div>`:'')+(list.length?`<h3 class="sub">Aus Degustationen</h3><div class="rows">${list.map(rowT).join('')}</div>`:'');
+  v.innerHTML=`<h2 class="ptitle">${all?'Alle Bewertungen':'Kaufliste'}</h2><div class="tools"><div class="seg" style="flex:1"><button class="btn ${all?'':'on'}" data-m="kauf">Kaufliste</button><button class="btn ${all?'on':''}" data-m="alle">Alle Bewertungen</button></div>${all?'':'<button class="btn pri" id="wadd">+ Wunsch</button>'}</div>${body}`;
   $$('[data-m]',v).forEach(b=>b.onclick=()=>{UI.kaufMode=b.dataset.m;render()});
-  $$('.item',v).forEach(it=>it.onclick=()=>openTasting(it.dataset.id));
+  $$('.item[data-id]',v).forEach(it=>it.onclick=()=>openTasting(it.dataset.id));
+  $$('.item[data-w]',v).forEach(it=>it.onclick=()=>openWish(it.dataset.w));
+  $('#wadd',v)?.addEventListener('click',()=>openWish());
+}
+function openWish(id){
+  const isNew=!id;
+  const w=id?structuredClone(D.wishlist.find(x=>x.id===id)):{id:uid(),name:'',distillery:'',barcode:'',image:'',note:'',target:null,seen:null,prio:'normal',added:Date.now()};
+  const d=modal(`<div class="mhead"><h2>${isNew?'Wunsch hinzufügen':esc(w.name)}</h2><button class="x" data-close aria-label="Schliessen">✕</button></div>
+  <div class="box"><label style="margin:0">Online suchen</label><div class="row"><input name="q" placeholder="Name oder Barcode (EAN)" enterkeyhint="search" style="min-width:0"><button class="btn" data-a="search">Suchen</button><button class="btn" data-a="scan" title="Barcode scannen">Scannen</button></div><div class="results" data-r></div></div>
+  <div class="imgrow"><div class="pic" data-pic></div><div class="stack"><div><label>Name</label><input name="name" value="${esc(w.name)}" placeholder="z. B. Lagavulin 16"></div><div><label>Brennerei / Marke</label><input name="distillery" value="${esc(w.distillery)}"></div></div></div>
+  <div class="g2"><div><label>Barcode</label><input name="barcode" inputmode="numeric" value="${esc(w.barcode)}"></div><div><label>Priorität</label><select name="prio"><option value="normal">Normal</option><option value="hoch">Hoch</option></select></div></div>
+  <div class="g2"><div><label>Zielpreis (so viel will ich zahlen)</label><input name="target" type="number" step="0.05" min="0" inputmode="decimal" value="${w.target??''}"></div><div><label>Zuletzt gesehener Preis</label><input name="seen" type="number" step="0.05" min="0" inputmode="decimal" value="${w.seen??''}"></div></div>
+  <div class="box"><label style="margin:0">Preis prüfen</label><div class="links" data-plinks></div></div>
+  <div><label>Notiz</label><textarea name="note">${esc(w.note)}</textarea></div>
+  <div class="row wrap sb">${isNew?'<span></span>':'<button class="btn danger" data-a="del">Löschen</button>'}<div class="row wrap">${isNew?'':'<button class="btn" data-a="tocoll">In Sammlung übernehmen</button>'}<button class="btn pri" data-a="save">Speichern</button></div></div>`);
+  const f=n=>d.querySelector(`[name=${n}]`);
+  let img=w.image;
+  const pic=()=>{$('[data-pic]',d).innerHTML=img?`<img src="${esc(img)}" alt="">`:PH('Foto')};pic();
+  f('prio').value=w.prio||'normal';
+  const links=()=>{$('[data-plinks]',d).innerHTML=priceLinks(f('name').value,f('barcode').value.trim(),f('distillery').value)};links();
+  d.addEventListener('input',e=>{if(['name','barcode','distillery'].includes(e.target.name))links()});
+  const pick=async it=>{
+    f('name').value=it.name;f('distillery').value=it.distillery||f('distillery').value;f('barcode').value=it.barcode||f('barcode').value;
+    $('[data-r]',d).innerHTML='<p class="muted">Übernommen, Bild wird geladen …</p>';
+    img=await cacheImage(it.image)||img;pic();links();$('[data-r]',d).innerHTML='<p class="ok sm">Daten übernommen.</p>';
+  };
+  const search=()=>lookupInto($('[data-r]',d),f('q').value,pick);
+  f('q').addEventListener('keydown',e=>{if(e.key==='Enter')search()});
+  const collect=()=>Object.assign(w,{name:f('name').value.trim(),distillery:f('distillery').value.trim(),barcode:f('barcode').value.trim(),prio:f('prio').value,target:num(f('target').value),seen:num(f('seen').value),note:f('note').value.trim(),image:img});
+  d.addEventListener('click',async e=>{
+    const a=e.target.closest('[data-a]')?.dataset.a;if(!a)return;
+    if(a==='search')search();
+    if(a==='scan'){const c=await scanBarcode();if(c){f('q').value=c;search()}}
+    if(a==='del'&&confirm('Diesen Wunsch löschen?')){del('wishlist',w.id);d.close()}
+    if(a==='save'){if(!f('name').value.trim()){f('name').focus();return}collect();put('wishlist',w);d.close()}
+    if(a==='tocoll'){if(!f('name').value.trim()){f('name').focus();return}collect();d.close();openBottle(null,{name:w.name,distillery:w.distillery,barcode:w.barcode,image:w.image,notes:w.note},{onSaved:()=>del('wishlist',w.id)})}
+  });
 }
 
 /* ============ Freunde ============ */
@@ -888,10 +996,15 @@ function rFriendView(v){
   fill();
 }
 function friendBottle(b,owner){
-  modal(`<div class="mhead"><h2>${esc(b.name)}</h2><button class="x" data-close aria-label="Schliessen">✕</button></div>
-  <div class="imgrow"><div class="pic">${b.image?`<img src="${esc(b.image)}" alt="">`:PH('Foto')}<div class="gauge"><i style="height:${b.fill}%"></i></div></div><div class="stack"><span class="muted">${esc([b.distillery,b.age?b.age+' Jahre':'',b.abv?b.abv+' %':'',b.volume?b.volume+' ml':''].filter(Boolean).join(' · '))}</span><span>Füllstand: <b>${b.fill} %</b></span><span>Note von ${esc(owner||'Freund')}: <b style="color:var(--copper2)">${b.rating??'–'}</b></span>${iHave(b)?'<span class="pill ja">hast du auch</span>':''}</div></div>
+  const d=modal(`<div class="mhead"><h2>${esc(b.name)}</h2><button class="x" data-close aria-label="Schliessen">✕</button></div>
+  <div class="imgrow"><div class="pic">${b.image?`<img src="${esc(b.image)}" alt="">`:PH('Foto')}<div class="gauge"><i style="height:${b.fill}%"></i></div></div><div class="stack"><span class="muted">${esc([b.distillery,b.age?b.age+' Jahre':'',b.abv?b.abv+' %':'',b.volume?b.volume+' ml':'',b.region,b.cask,b.bottler].filter(Boolean).join(' · '))}</span><span>Füllstand: <b>${b.fill} %</b></span><span>Note von ${esc(owner||'Freund')}: <b style="color:var(--copper2)">${b.rating??'–'}</b></span>${iHave(b)?'<span class="pill ja">hast du auch</span>':''}</div></div>
   ${b.notes?`<div class="box"><label style="margin:0">Notizen</label><div style="white-space:pre-wrap">${esc(b.notes)}</div></div>`:''}
-  <div class="box"><label style="margin:0">Preis prüfen</label><div class="links">${priceLinks(b.name,b.barcode,b.distillery)}</div></div>`);
+  <div class="box"><label style="margin:0">Preis prüfen</label><div class="links">${priceLinks(b.name,b.barcode,b.distillery)}</div></div>
+  ${iHave(b)?'':'<div><button class="btn" data-wish>Auf meine Wunschliste</button></div>'}`);
+  $('[data-wish]',d)?.addEventListener('click',()=>{
+    if(D.wishlist.some(x=>(b.barcode&&x.barcode===b.barcode)||x.name.trim().toLowerCase()===b.name.trim().toLowerCase())){toast('Steht schon auf deiner Wunschliste');return}
+    put('wishlist',{id:uid(),name:b.name,distillery:b.distillery||'',barcode:b.barcode||'',image:b.image||'',note:'Gesehen bei '+(owner||'einem Freund'),target:null,seen:null,prio:'normal',added:Date.now()});toast('Auf deiner Wunschliste');d.close();
+  });
 }
 
 /* ============ Konto ============ */
@@ -907,11 +1020,11 @@ function rAccount(v){
   <div class="box"><button class="btn danger" id="wipe">Alle meine Whisky-Daten löschen</button></div></div>`;
   $('#out').onclick=()=>signOut(auth);
   $('#cur').onchange=e=>{D.settings.currency=e.target.value;saveSettings();render()};
-  $('#exp').onclick=()=>dl(`whisky-vault-${today()}.json`,JSON.stringify({bottles:D.bottles,sessions:D.sessions,tastings:D.tastings,settings:D.settings}),'application/json');
+  $('#exp').onclick=()=>dl(`whisky-vault-${today()}.json`,JSON.stringify({bottles:D.bottles,sessions:D.sessions,tastings:D.tastings,wishlist:D.wishlist,settings:D.settings}),'application/json');
   $('#imp').onclick=()=>$('#impf').click();
   $('#impf').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const j=JSON.parse(await f.text());if(!Array.isArray(j.bottles))throw 0;if(!confirm(`${j.bottles.length} Flaschen aus dem Backup zu deinen Daten hinzufügen? Gleiche IDs werden überschrieben.`))return;await bulkSet(j);toast('Backup importiert')}catch(err){alert('Datei ist kein gültiges Backup oder Import fehlgeschlagen.')}};
   if(LEGACY)$('#legacy').onclick=async()=>{try{await bulkSet(structuredClone(LEGACY));LEGACY=null;toast('Lokale Daten übernommen');render()}catch(e){fail(e)}};
-  $('#csv').onclick=()=>{const q=s=>`"${String(s??'').replace(/"/g,'""')}"`;const rows=[['Name','Brennerei','Alter','Alkohol','Inhalt ml','Barcode','Fuellstand %','Einstand','Note','Marktpreis','Notizen'],...D.bottles.map(b=>[b.name,b.distillery,b.age,b.abv,b.volume,b.barcode,b.fill,b.price,b.rating,b.market?.price,b.notes])];dl('whisky-sammlung.csv','\ufeff'+rows.map(r=>r.map(q).join(';')).join('\n'),'text/csv')};
+  $('#csv').onclick=()=>{const q=s=>`"${String(s??'').replace(/"/g,'""')}"`;const rows=[['Name','Brennerei','Alter','Alkohol','Inhalt ml','Barcode','Fuellstand %','Einstand','Note','Marktpreis','Notizen','Region','Fassart','Abfueller','Kaufdatum','Kaufort','Status'],...D.bottles.map(b=>[b.name,b.distillery,b.age,b.abv,b.volume,b.barcode,b.fill,b.price,b.rating,b.market?.price,b.notes,b.region,b.cask,b.bottler,b.bought,b.shop,isOpen(b)?'geöffnet':'ungeöffnet'])];dl('whisky-sammlung.csv','\ufeff'+rows.map(r=>r.map(q).join(';')).join('\n'),'text/csv')};
   $('#wipe').onclick=async()=>{if(confirm('Wirklich ALLE deine Flaschen, Degustationen und Bewertungen löschen? Das lässt sich nicht rückgängig machen.')){try{await wipeAll();toast('Alles gelöscht')}catch(e){fail(e)}}};
 }
 function dl(name,text,type){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}

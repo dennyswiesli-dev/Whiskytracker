@@ -20,10 +20,13 @@ Whisky Vault beantwortet das in Sekunden. Flasche scannen oder Namen eintippen, 
 ## Das kann die App
 
 ### Sammlung
-- Jede Flasche mit Bild, Brennerei, Alter, Alkoholgehalt, Inhalt und Notizen.
-- **Füllstand** als Regler, damit du siehst, was fast leer ist.
+- Jede Flasche mit Bild, Brennerei, Region, Fassart, Abfüller, Alter, Alkoholgehalt, Inhalt und Notizen.
+- **Status** geöffnet oder ungeöffnet, dazu der **Füllstand** als Regler, damit du siehst, was fast leer ist.
+- Kaufdatum und Kaufort für dich privat festhalten.
+- Filter nach geöffnet, ungeöffnet, fast leer, ohne Note und ohne Marktpreis.
 - Übersicht mit Anzahl Flaschen, Einstandswert, Marktwert und Durchschnittsnote.
-- Suchen, nach Name, Note, Preis, Füllstand oder Datum sortieren, **Backup als JSON** exportieren und wieder importieren.
+- Suchen, nach Name, Brennerei, Note, Preis, Füllstand oder Datum sortieren, **Backup als JSON** oder **CSV** exportieren.
+- **Statistik:** Inhalt und Restmenge, Top-Brennereien, Regionen, Geschmacksprofil, Ausgaben pro Jahr, beste Bewertungen sowie grösster Wertzuwachs und -verlust.
 
 ### Schnell erfassen
 - **Barcode scannen** mit der Handykamera, oder ein Foto vom Strichcode machen.
@@ -38,7 +41,9 @@ Whisky Vault beantwortet das in Sekunden. Flasche scannen oder Namen eintippen, 
 - Bewertete Whiskys übernimmst du mit einem Tipp in die Sammlung.
 
 ### Kaufliste und Preise
-- Die **Kaufliste** entsteht von selbst: Whiskys, bei denen du am Degustationsabend «Ja» oder «Vielleicht» wählst, landen dort, sortiert nach deiner Note.
+- Eigene **Wunschliste** mit Zielpreis, zuletzt gesehenem Preis und Priorität. Die App zeigt an, wenn der Zielpreis erreicht ist, und übernimmt den Wunsch mit einem Tipp in die Sammlung.
+- Auch die Flaschen von Freunden lassen sich mit einem Tipp auf die Wunschliste setzen.
+- Whiskys, bei denen du am Degustationsabend «Ja» oder «Vielleicht» wählst, landen automatisch auf der Kaufliste, sortiert nach deiner Note.
 - **Preisvergleich** mit einem Tipp: Google Shopping, toppreise.ch, idealo.de und Whiskybase, mit Marke und Name schon eingesetzt.
 - Community-Preise (Open Prices) per Barcode, den besten Marktpreis trägst du ein.
 - In der Sammlung siehst du auf einen Blick, ob eine Flasche seit dem Kauf im Wert gestiegen oder gefallen ist.
