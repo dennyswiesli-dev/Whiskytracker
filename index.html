@@ -115,7 +115,12 @@ label{display:block;font-size:.85rem;color:var(--mute);margin:0 0 4px}
 @media(max-width:520px){.g3{grid-template-columns:1fr 1fr}}
 .imgrow{display:flex;gap:12px;align-items:center}
 .imgrow .pic{width:120px;aspect-ratio:3/4;border-radius:10px;overflow:hidden;font-size:2.4rem;flex:none}
-.stack{display:flex;flex-direction:column;gap:8px}
+.stack{display:flex;flex-direction:column;gap:8px;flex:1;min-width:0}
+.stack .btn{width:100%;white-space:normal}
+.note{background:var(--glass3);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:.9rem}
+.note.bad{border-color:var(--bad)}
+.note.bad b{color:var(--bad)}
+.reader{width:100%;min-height:120px;border-radius:12px;overflow:hidden;background:#0e1916}
 .res{display:flex;gap:10px;align-items:center;text-align:left;background:var(--glass3);border:1px solid var(--line);border-radius:10px;padding:8px;cursor:pointer;width:100%}
 .res:hover{border-color:var(--amber)}
 .res img,.res .ph{width:42px;height:52px;object-fit:contain;background:#0e1916;border-radius:6px;display:grid;place-items:center;flex:none}
@@ -261,7 +266,7 @@ const LocalDB={open(){return new Promise((res,rej)=>{const r=indexedDB.open('whi
 async function getJSON(url){
   const c=new AbortController();const t=setTimeout(()=>c.abort(),14000);
   try{const r=await fetch(url,{signal:c.signal});if(!r.ok)throw new Error('HTTP '+r.status);return await r.json()}
-  catch(e){throw new Error(e.name==='AbortError'?'Zeitüberschreitung':e.message)}
+  catch(e){throw new Error(e.name==='AbortError'?'Zeitüberschreitung':/load failed|failed to fetch|networkerror|network request/i.test(e.message)?'Keine Verbindung zum Suchdienst':e.message)}
   finally{clearTimeout(t)}
 }
 const OFF_FIELDS='code,product_name,brands,image_front_url,image_front_small_url,quantity,nutriments';
@@ -270,18 +275,34 @@ function parseVol(q){
   const v=parseFloat(m[1]);return Math.round(m[2]==='cl'?v*10:m[2]==='l'?v*1000:v);
 }
 function mapOff(p){
-  const n=p.nutriments||{};const abv=n.alcohol_100g??n.alcohol??null;
-  return{name:p.product_name||'(ohne Name)',distillery:(p.brands||'').split(',')[0].trim(),barcode:p.code||'',image:p.image_front_url||p.image_front_small_url||'',thumb:p.image_front_small_url||p.image_front_url||'',abv:abv?Math.round(abv*10)/10:null,volume:parseVol(p.quantity)};
+  const n=p.nutriments||{};const abv=n.alcohol_100g??n.alcohol_value??n.alcohol??null;
+  const brand=Array.isArray(p.brands)?p.brands[0]:String(p.brands||'').split(',')[0];
+  const img=p.image_front_url||p.image_url||p.image_front_small_url||p.image_small_url||'';
+  const thumb=p.image_front_small_url||p.image_small_url||img;
+  return{name:p.product_name||'(ohne Name)',distillery:(brand||'').trim(),barcode:String(p.code||''),image:img,thumb,abv:abv?Math.round(abv*10)/10:null,volume:parseVol(Array.isArray(p.quantity)?p.quantity[0]:p.quantity)};
 }
 async function offByCode(code){
-  const j=await getJSON(`https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(code)}.json?fields=${OFF_FIELDS}`);
-  return j.status===1&&j.product?mapOff({...j.product,code:j.product.code||code}):null;
+  let last;
+  for(const u of[`https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(code)}.json?fields=${OFF_FIELDS}`,`https://world.openfoodfacts.org/api/v0/product/${encodeURIComponent(code)}.json`]){
+    try{const j=await getJSON(u);if(j.status===1&&j.product)return mapOff({...j.product,code:j.product.code||code})}catch(e){last=e}
+  }
+  if(last)throw last;return null;
 }
 async function offSearch(q){
-  const base=`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(q)}&search_simple=1&action=process&json=1&page_size=15&fields=${OFF_FIELDS}`;
-  let j=await getJSON(base+'&tagtype_0=categories&tag_contains_0=contains&tag_0=whiskies');
-  if(!(j.products||[]).length)j=await getJSON(base);
-  return (j.products||[]).filter(p=>p.product_name).map(mapOff);
+  const clean=q.replace(/[()"\[\]{}:]/g,' ').replace(/\s+/g,' ').trim();
+  const sal=async extra=>{
+    const j=await getJSON(`https://search.openfoodfacts.org/search?q=${encodeURIComponent((clean+' '+extra).trim())}&page_size=15&langs=de,en`);
+    return (j.hits||[]).filter(p=>p.product_name).map(mapOff);
+  };
+  const legacy=async cat=>{
+    const j=await getJSON(`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(clean)}&search_simple=1&action=process&json=1&page_size=15&fields=${OFF_FIELDS}${cat?'&tagtype_0=categories&tag_contains_0=contains&tag_0=whiskies':''}`);
+    return (j.products||[]).filter(p=>p.product_name).map(mapOff);
+  };
+  let err,ok=false;
+  for(const run of[()=>sal('categories_tags:"en:whiskies"'),()=>sal(''),()=>legacy(true),()=>legacy(false)]){
+    try{const r=await run();ok=true;if(r.length)return r}catch(e){err=e}
+  }
+  if(!ok)throw err;return[];
 }
 async function openPrices(code){
   const j=await getJSON(`https://prices.openfoodfacts.org/api/v1/prices?product_code=${encodeURIComponent(code)}&order_by=price&size=60`);
@@ -320,24 +341,34 @@ const loadH5=()=>h5??=new Promise((res,rej)=>{const s=document.createElement('sc
 async function scanBarcode(){
   try{await loadH5()}catch(e){alert(e.message);return null}
   return new Promise(resolve=>{
-    const d=modal(`<div class="mhead"><h2>Barcode scannen</h2><button class="x" data-close>✕</button></div><div id="reader" style="width:100%"></div><p class="muted sm">Halte den Strichcode (EAN) ruhig in den Rahmen.</p><div class="row"><input id="mcode" placeholder="oder Nummer eintippen" inputmode="numeric"><button class="btn pri" id="mok">OK</button></div>`);
+    const d=modal(`<div class="mhead"><h2>Barcode scannen</h2><button class="x" data-close aria-label="Schliessen">✕</button></div><div id="reader" class="reader"></div><p class="muted sm" id="rmsg">Halte den Strichcode (EAN) ruhig und gut beleuchtet in den Rahmen.</p><div class="row"><button class="btn" id="mphoto">📷 Foto vom Barcode</button><input type="file" accept="image/*" capture="environment" hidden id="mfile"></div><div class="row"><input id="mcode" placeholder="oder Nummer eintippen" inputmode="numeric"><button class="btn pri" id="mok">OK</button></div>`);
     let q,done=false;
-    const finish=async v=>{if(done)return;done=true;try{await q?.stop();q?.clear()}catch{}d.close();resolve(v)};
+    const finish=async v=>{if(done)return;done=true;try{await q?.stop()}catch{}try{q?.clear()}catch{}d.close();resolve(v)};
     d.addEventListener('close',()=>finish(null));
-    $('#mok',d).onclick=()=>{const v=$('#mcode',d).value.trim();if(v)finish(v)};
-    q=new Html5Qrcode('reader',{formatsToSupport:[Html5QrcodeSupportedFormats.EAN_13,Html5QrcodeSupportedFormats.EAN_8,Html5QrcodeSupportedFormats.UPC_A,Html5QrcodeSupportedFormats.UPC_E],useBarCodeDetectorIfSupported:true,verbose:false});
-    q.start({facingMode:'environment'},{fps:10,qrbox:{width:260,height:140}},t=>finish(t),()=>{}).catch(()=>{$('#reader',d).innerHTML='<p class="err">Kamera nicht verfügbar. Erlaube den Kamerazugriff oder tippe die Nummer ein.</p>'});
+    $('#mok',d).onclick=()=>{const v=$('#mcode',d).value.replace(/\D/g,'');if(v)finish(v)};
+    $('#mcode',d).addEventListener('keydown',e=>{if(e.key==='Enter')$('#mok',d).click()});
+    const fmts=[Html5QrcodeSupportedFormats.EAN_13,Html5QrcodeSupportedFormats.EAN_8,Html5QrcodeSupportedFormats.UPC_A,Html5QrcodeSupportedFormats.UPC_E];
+    q=new Html5Qrcode('reader',{formatsToSupport:fmts,useBarCodeDetectorIfSupported:true,experimentalFeatures:{useBarCodeDetectorIfSupported:true},verbose:false});
+    $('#mphoto',d).onclick=()=>$('#mfile',d).click();
+    $('#mfile',d).onchange=async e=>{
+      const file=e.target.files[0];if(!file)return;
+      $('#rmsg',d).textContent='Foto wird gelesen …';
+      try{try{await q.stop()}catch{}const r=await q.scanFile(file,false);finish(r)}
+      catch{$('#rmsg',d).innerHTML='<span class="err">Im Foto wurde kein Barcode erkannt. Näher ran, gerade fotografieren, oder Nummer eintippen.</span>'}
+    };
+    q.start({facingMode:'environment'},{fps:15,qrbox:(w,h)=>({width:Math.floor(w*.9),height:Math.floor(Math.min(h,w)*.45)}),videoConstraints:{width:{ideal:1920},height:{ideal:1080},advanced:[{focusMode:'continuous'}]}},t=>finish(t),()=>{})
+      .catch(()=>{$('#reader',d).innerHTML='<p class="err" style="padding:12px">Kamera nicht verfügbar. Erlaube den Kamerazugriff, nutze „Foto vom Barcode“ oder tippe die Nummer ein.</p>'});
   });
 }
 async function lookupInto(el,q,onPick){
   q=q.trim();if(!q)return;
-  el.innerHTML='<p class="muted">Suche läuft …</p>';
+  el.innerHTML='<p class="muted sm">Suche läuft …</p>';
   try{
     const items=/^\d{8,14}$/.test(q)?[await offByCode(q)].filter(Boolean):await offSearch(q);
-    if(!items.length){el.innerHTML='<p class="muted">Nichts gefunden. Trage die Daten von Hand ein oder versuche es mit dem Barcode.</p>';return}
+    if(!items.length){el.innerHTML='<div class="note"><b>Nichts gefunden.</b> Versuche einen kürzeren Namen (z. B. „Glenmoray“), scanne den Barcode oder trage die Daten von Hand ein.</div>';return}
     el.innerHTML=items.map((it,i)=>`<button class="res" data-i="${i}">${it.thumb?`<img src="${esc(it.thumb)}" alt="">`:'<span class="ph">🥃</span>'}<span><b>${esc(it.name)}</b><small>${esc([it.distillery,it.abv?it.abv+' %':'',it.volume?it.volume+' ml':'',it.barcode].filter(Boolean).join(' · '))}</small></span></button>`).join('');
     $$('.res',el).forEach(b=>b.onclick=()=>onPick(items[b.dataset.i]));
-  }catch(e){el.innerHTML=`<p class="err">Online-Suche nicht erreichbar (${esc(e.message)}). Später nochmals versuchen oder von Hand eintragen.</p>`}
+  }catch(e){el.innerHTML=`<div class="note bad"><b>Suche nicht erreichbar.</b> ${esc(e.message)}. Prüfe deine Verbindung oder trage die Daten von Hand ein.<div class="row" style="margin-top:8px"><button class="btn" data-retry>Nochmals versuchen</button></div></div>`;$('[data-retry]',el).onclick=()=>lookupInto(el,q,onPick)}
 }
 function priceBox(d,{getName,getCode,onApply}){
   const refresh=()=>{$('[data-plinks]',d).innerHTML=priceLinks(getName(),getCode())};
@@ -452,7 +483,7 @@ function openBottle(id,pre){
   const isNew=!id;
   const b=id?structuredClone(D.bottles.find(x=>x.id===id)):Object.assign({id:uid(),name:'',distillery:'',age:null,abv:null,volume:700,barcode:'',image:'',fill:100,price:null,rating:null,notes:'',market:null,added:Date.now()},pre||{});
   const d=modal(`<div class="mhead"><h2>${isNew?'Whisky hinzufügen':'Whisky bearbeiten'}</h2><button class="x" data-close aria-label="Schliessen">✕</button></div>
-  <div class="box"><label style="margin:0">Online abgleichen</label><div class="row"><input name="q" placeholder="Name oder Barcode (EAN)"><button class="btn" data-a="search">Suchen</button><button class="btn" data-a="scan" title="Barcode scannen">📷</button></div><div class="results" data-r></div></div>
+  <div class="box"><label style="margin:0">Online abgleichen</label><div class="row"><input name="q" placeholder="Name oder Barcode (EAN)" enterkeyhint="search" style="min-width:0"><button class="btn" data-a="search">Suchen</button><button class="btn" data-a="scan" title="Barcode scannen" aria-label="Barcode scannen">📷</button></div><div class="results" data-r></div></div>
   <div class="imgrow"><div class="pic" data-pic></div><div class="stack"><button class="btn" data-a="photo">Foto wählen / aufnehmen</button><button class="btn ghost" data-a="rmimg">Bild entfernen</button><input type="file" accept="image/*" hidden data-file></div></div>
   <div><label>Name</label><input name="name" value="${esc(b.name)}" placeholder="z. B. Lagavulin 16"></div>
   <div class="g2"><div><label>Brennerei / Marke</label><input name="distillery" value="${esc(b.distillery)}"></div><div><label>Barcode</label><input name="barcode" inputmode="numeric" value="${esc(b.barcode)}"></div></div>
@@ -546,7 +577,7 @@ function addTasting(w,bottleId){
 function openTasting(id){
   const orig=D.tastings.find(x=>x.id===id);if(!orig)return;const t=structuredClone(orig);
   const d=modal(`<div class="mhead"><h2>Bewertung</h2><button class="x" data-close aria-label="Schliessen">✕</button></div>
-  <div class="imgrow"><div class="pic" data-pic></div><div class="stack" style="flex:1"><div><label>Name</label><input name="name" value="${esc(t.whisky.name)}"></div><div><label>Barcode</label><input name="barcode" inputmode="numeric" value="${esc(t.whisky.barcode)}"></div><button class="btn" data-a="photo">Foto wählen / aufnehmen</button><input type="file" accept="image/*" hidden data-file></div></div>
+  <div class="imgrow"><div class="pic" data-pic></div><div class="stack"><div><label>Name</label><input name="name" value="${esc(t.whisky.name)}"></div><div><label>Barcode</label><input name="barcode" inputmode="numeric" value="${esc(t.whisky.barcode)}"></div><button class="btn" data-a="photo">Foto wählen / aufnehmen</button><input type="file" accept="image/*" hidden data-file></div></div>
   <div><label>Punkte (0–100)</label><div class="row"><input name="score" type="range" min="0" max="100" step="1" value="${t.score??75}"><span class="range-val" data-sv>${t.score??'–'}</span></div><div class="sm muted">Regler bewegen, um eine Note zu setzen.</div></div>
   <div><label>Geschmacksrichtung</label><div class="chips">${TAGS.map(g=>`<button class="chip ${(t.tags||[]).includes(g)?'on':''}" data-tag="${g}">${g}</button>`).join('')}</div></div>
   <div><label>Nase</label><textarea name="nose">${esc(t.nose)}</textarea></div>
