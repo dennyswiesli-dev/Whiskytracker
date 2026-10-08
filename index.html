@@ -4,153 +4,205 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Whisky Vault</title>
-<meta name="theme-color" content="#12201c">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🥃%3C/text%3E%3C/svg%3E">
+<meta name="theme-color" content="#17120e">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='4' fill='%2317120e'/%3E%3Crect x='0' y='88' width='100' height='12' fill='%23c8813a'/%3E%3Ctext x='50' y='72' text-anchor='middle' font-family='Georgia,serif' font-size='68' fill='%23efe6d2'%3EW%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;700&family=Young+Serif&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=Hanken+Grotesk:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root{
-  --glass:#12201c;      /* Flaschenglas */
-  --glass2:#1a2d27;     /* Karten */
-  --glass3:#24403a;     /* Felder / Hover */
-  --line:#2f4f47;
-  --paper:#ece3cf;      /* Etikett */
-  --mute:#9db3a8;
-  --amber:#e3a33f;      /* Destillat */
-  --amber2:#f2c26b;
+  --cask:#17120e;       /* Fassholz, Hintergrund */
+  --cask2:#211a14;      /* Flächen, Dialoge */
+  --cask3:#2a2018;      /* Platzhalter */
+  --line:#3a2f25;       /* feine Linien */
+  --line2:#5a4a3a;      /* Ränder von Feldern und Knöpfen */
+  --paper:#efe6d2;      /* Etikett */
+  --ink:#1d160f;        /* Schrift auf Etikett */
+  --ink2:#5b4a38;
+  --mute:#a89a85;
+  --copper:#c8813a;     /* Akzent */
+  --copper2:#e0a05a;
   --peat:#8a6a43;
-  --good:#8fd19e;
-  --bad:#f0907a;
-  --r:14px;
+  --good:#8fb27a;
+  --bad:#d08a74;
+  --r:2px;
+  --serif:'Newsreader',Georgia,serif;
+  --sans:'Hanken Grotesk',system-ui,sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,Menlo,monospace;
+  --stripes:repeating-linear-gradient(135deg,#2a2018 0 8px,#31261c 8px 16px);
 }
 *{box-sizing:border-box}
 [hidden]{display:none!important}
 html{-webkit-text-size-adjust:100%}
-body{margin:0;background:var(--glass);color:var(--paper);font:400 16px/1.45 Figtree,system-ui,sans-serif;padding-bottom:env(safe-area-inset-bottom)}
-h1,h2,h3{font-family:'Young Serif',Georgia,serif;font-weight:400;margin:0}
-button,input,select,textarea{font:inherit;color:inherit}
-:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
-.top{position:sticky;top:0;z-index:5;background:rgba(18,32,28,.94);backdrop-filter:blur(8px);border-bottom:1px solid var(--line);padding:calc(10px + env(safe-area-inset-top)) 16px 0}
-.top h1{font-size:1.5rem;letter-spacing:.2px}
-#chip{max-width:45%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-#tabs{display:flex;gap:4px;margin-top:8px;overflow-x:auto;scrollbar-width:none}
-#tabs button{background:none;border:0;border-bottom:3px solid transparent;padding:10px 14px;color:var(--mute);cursor:pointer;white-space:nowrap;font-weight:500;position:relative}
-#tabs button.on{color:var(--amber2);border-color:var(--amber)}
-#tabs .dot{position:absolute;top:6px;right:4px;width:9px;height:9px;border-radius:50%;background:var(--amber)}
-main{max-width:1100px;margin:0 auto;padding:16px 16px 80px}
-.muted{color:var(--mute)} .sm{font-size:.85rem}
+body{margin:0;background:var(--cask);color:var(--paper);font:400 15px/1.5 var(--sans);padding-bottom:env(safe-area-inset-bottom)}
+h1,h2,h3{font-family:var(--serif);font-weight:400;margin:0}
+button,input,select,textarea{font-family:var(--sans);font-size:inherit;color:inherit}
+a{color:var(--copper)}a:hover{color:var(--copper2)}
+:focus-visible{outline:2px solid var(--copper);outline-offset:2px}
+.hwrap{max-width:1120px;margin:0 auto;padding-left:24px;padding-right:24px}
+.top{position:sticky;top:0;z-index:5;background:#17120ef2;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border-bottom:1px solid var(--line);padding-top:calc(18px + env(safe-area-inset-top))}
+.brand{display:flex;justify-content:space-between;align-items:baseline;gap:16px}
+.brand>div{display:flex;align-items:baseline;gap:12px;min-width:0}
+.top h1{font:500 1.7rem/1 var(--serif);letter-spacing:-.01em;white-space:nowrap}
+.kicker{font:400 11px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--mute)}
+#chip{font:400 12px var(--mono);color:var(--mute);max-width:45%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#tabs{display:flex;gap:28px;margin-top:16px;overflow-x:auto;scrollbar-width:none}
+#tabs::-webkit-scrollbar{display:none}
+#tabs button{background:none;border:0;border-bottom:2px solid transparent;padding:10px 0;color:var(--mute);cursor:pointer;white-space:nowrap;font:500 12px var(--mono);letter-spacing:.14em;text-transform:uppercase;position:relative}
+#tabs button:hover{color:var(--paper)}
+#tabs button.on{color:var(--copper2);border-color:var(--copper)}
+#tabs .dot{position:absolute;top:6px;right:-10px;width:7px;height:7px;border-radius:50%;background:var(--copper)}
+main{max-width:1120px;margin:0 auto;padding:28px 24px 96px}
+.muted{color:var(--mute)} .sm{font-size:13px}
 .err{color:var(--bad)} .ok{color:var(--good)}
 .row{display:flex;gap:8px;align-items:center}
 .row.wrap{flex-wrap:wrap}
 .row.sb{justify-content:space-between}
-.btn{background:var(--glass3);border:1px solid var(--line);border-radius:10px;padding:9px 14px;cursor:pointer;white-space:nowrap}
-.btn:hover{border-color:var(--amber)}
-.btn.pri{background:var(--amber);color:#201508;border-color:var(--amber);font-weight:700}
-.btn.pri:hover{background:var(--amber2)}
-.btn.ghost{background:none}
+.ptitle{margin:0 0 20px;font:400 1.8rem var(--serif)}
+.btn{background:transparent;border:1px solid var(--line2);border-radius:var(--r);padding:9px 16px;cursor:pointer;white-space:nowrap;color:var(--paper)}
+.btn:hover{border-color:var(--copper)}
+.btn.pri{background:var(--copper);color:var(--ink);border-color:var(--copper);font-weight:600;letter-spacing:.02em;padding:10px 18px}
+.btn.pri:hover{background:var(--copper2);border-color:var(--copper2)}
+.btn.ghost{border-color:transparent;color:var(--mute)}
+.btn.ghost:hover{color:var(--paper);border-color:var(--line2)}
 .btn.danger{color:var(--bad)}
-input,select,textarea{width:100%;background:var(--glass3);border:1px solid var(--line);border-radius:10px;padding:9px 11px}
+input,select,textarea{width:100%;background:var(--cask);border:1px solid var(--line);border-radius:var(--r);padding:10px;color:var(--paper);font-size:15px}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--copper)}
+input::placeholder,textarea::placeholder{color:#7d6f5c}
+select{background:var(--cask2)}
 textarea{resize:vertical;min-height:70px}
-input[type=range]{padding:0;accent-color:var(--amber)}
-label{display:block;font-size:.85rem;color:var(--mute);margin:0 0 4px}
-.chk{display:flex;gap:10px;align-items:center;color:var(--paper);font-size:1rem;margin:0}
-.chk input{width:auto;accent-color:var(--amber)}
-.code{font:700 1.3rem/1 ui-monospace,Menlo,monospace;letter-spacing:2px;color:var(--amber2);background:var(--glass3);border:1px dashed var(--peat);border-radius:10px;padding:10px 14px}
-.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom));background:var(--paper);color:#17201c;padding:10px 16px;border-radius:12px;z-index:50;max-width:90%;font-weight:500}
+input[type=range]{padding:0;border:0;background:none;accent-color:var(--copper)}
+label{display:block;font:400 11px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--mute);margin:0 0 6px}
+.chk{display:flex;gap:10px;align-items:center;color:var(--paper);font:400 15px var(--sans);letter-spacing:0;text-transform:none;margin:0}
+.chk input{width:auto;accent-color:var(--copper)}
+.code{font:500 1.2rem/1 var(--mono);letter-spacing:.14em;color:var(--copper2);border:1px dashed var(--peat);border-radius:var(--r);padding:10px 14px}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom));background:var(--paper);color:var(--ink);padding:10px 16px;border-radius:var(--r);border-left:3px solid var(--copper);z-index:50;max-width:90%;font-weight:500;box-shadow:0 10px 24px -14px #000}
 
-.auth{max-width:420px;margin:24px auto;display:flex;flex-direction:column;gap:12px}
+.auth{max-width:420px;margin:24px auto;display:flex;flex-direction:column;gap:14px}
 .auth h2{font-size:1.8rem}
-.or{display:flex;align-items:center;gap:10px;color:var(--mute);font-size:.85rem}
+.or{display:flex;align-items:center;gap:10px;font:400 11px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--mute)}
 .or::before,.or::after{content:'';flex:1;height:1px;background:var(--line)}
-.btn.google{background:var(--paper);color:#1b1b1b;font-weight:700;border-color:var(--paper);display:flex;gap:10px;justify-content:center;align-items:center}
-.banner{background:var(--glass2);border:1px solid var(--amber);border-radius:var(--r);padding:12px 14px}
+.btn.google{background:var(--paper);color:var(--ink);font-weight:600;border-color:var(--paper);display:flex;gap:10px;justify-content:center;align-items:center}
+.btn.google:hover{background:#fff8ea}
+.banner{border:1px solid var(--line);border-left:3px solid var(--copper);border-radius:var(--r);padding:14px 16px}
 
-.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:16px}
-.stat{background:var(--glass2);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px}
-.stat b{display:block;font:400 1.35rem 'Young Serif',Georgia,serif;color:var(--amber2)}
-.stat span{font-size:.8rem;color:var(--mute)}
-.tools{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center}
-.tools input[type=search],.tools input#q,.tools input#fq{flex:1 1 180px;width:auto}.tools select{flex:0 0 auto;width:auto}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));border-top:1px solid var(--line);border-bottom:1px solid var(--line);margin-bottom:28px}
+.stat{padding:16px 20px 16px 0}
+.stat span{display:block;font:400 11px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--mute)}
+.stat b{display:block;font:400 1.9rem/1.2 var(--serif);margin-top:4px}
+.tools{display:flex;gap:10px;margin-bottom:24px;flex-wrap:wrap;align-items:center}
+.tools input[type=search],.tools input#q,.tools input#fq{flex:1 1 200px;width:auto;min-width:0;background:transparent;border:0;border-bottom:1px solid var(--line2);border-radius:0;padding:10px 2px}
+.tools input[type=search]:focus{border-bottom-color:var(--copper)}
+.tools select{flex:0 0 auto;width:auto;padding:9px 12px}
 
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px}
-.card{background:var(--glass2);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;cursor:pointer;display:flex;flex-direction:column}
-.card:hover{border-color:var(--amber)}
-.pic{position:relative;aspect-ratio:4/3;background:#0e1916;display:grid;place-items:center;font-size:3rem}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:20px}
+.card{background:var(--paper);color:var(--ink);border-radius:var(--r);cursor:pointer;display:flex;flex-direction:column;box-shadow:0 1px 0 #0006,0 10px 24px -14px #000}
+.card:hover{transform:translateY(-3px)}
+.card .pic{margin:10px 10px 0}
+.pic{position:relative;aspect-ratio:4/3;background:var(--stripes);display:grid;place-items:center;overflow:hidden}
+.pic:has(img){background:var(--cask2)}
 .pic img{width:100%;height:100%;object-fit:contain;padding:8px}
-.gauge{position:absolute;left:0;top:0;bottom:0;width:7px;background:#0a1210}
-.gauge i{position:absolute;left:0;right:0;bottom:0;background:linear-gradient(var(--amber2),var(--peat))}
-.score{position:absolute;right:8px;top:8px;min-width:42px;height:42px;border-radius:50%;display:grid;place-items:center;background:var(--glass);border:2px solid var(--c);font:400 1rem 'Young Serif',Georgia,serif}
-.cbody{padding:12px 14px 14px;display:flex;flex-direction:column;gap:4px;flex:1}
-.cbody h3{font-size:1.05rem;line-height:1.25}
-.cbody p{margin:0;font-size:.85rem}
-.mk{font-size:.85rem;margin-top:2px}
-.up{color:var(--good)}.down{color:var(--bad)}
-.empty{text-align:center;padding:48px 16px;color:var(--mute);border:1px dashed var(--line);border-radius:var(--r)}
-.empty b{display:block;font:400 1.2rem 'Young Serif',Georgia,serif;color:var(--paper);margin-bottom:6px}
+.ph-l{font:400 10px var(--mono);letter-spacing:.1em;color:var(--mute);text-transform:uppercase}
+.gauge{position:absolute;left:0;top:0;bottom:0;width:5px;background:#0006}
+.gauge i{position:absolute;left:0;right:0;bottom:0;background:var(--copper)}
+.score{position:absolute;right:0;top:12px;background:var(--cask);color:var(--paper);padding:4px 10px 4px 12px;font:500 1.15rem/1.2 var(--serif);border-left:3px solid var(--copper)}
+.cbody{padding:14px 16px 16px;display:flex;flex-direction:column;gap:6px;flex:1}
+.cbody .dist{font:400 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--peat)}
+.cbody h3{font:500 1.25rem/1.2 var(--serif)}
+.cbody p{margin:0;font-size:13px;color:var(--ink2)}
+.cfoot{margin-top:auto;padding-top:10px;border-top:1px solid #1d160f26;display:flex;justify-content:space-between;gap:8px;font:400 12px var(--mono);color:#3b2d20}
+.mk{font-size:12px;color:var(--ink2)}
+.up{color:#3f6b3a}.down{color:#9a4a36}
+.card .pill{border-color:#3f6b3a;color:#3f6b3a}
+.empty{text-align:center;padding:64px 24px;color:var(--mute);border:1px dashed var(--line2);border-radius:var(--r)}
+.empty b{display:block;font:400 1.5rem var(--serif);color:var(--paper);margin-bottom:6px}
 
-.list{display:flex;flex-direction:column;gap:10px}
-.item{display:flex;gap:12px;background:var(--glass2);border:1px solid var(--line);border-radius:var(--r);padding:10px;cursor:pointer;align-items:center}
+.list{display:flex;flex-direction:column;gap:12px}
+.rows{border-top:1px solid var(--line)}
+.item{display:flex;gap:16px;border-bottom:1px solid var(--line);padding:14px 0;cursor:pointer;align-items:center}
 .item.static{cursor:default}
-.item:not(.static):hover{border-color:var(--amber)}
-.item .th{width:56px;height:70px;background:#0e1916;border-radius:8px;display:grid;place-items:center;font-size:1.6rem;flex:none;overflow:hidden}
+.item:not(.static):hover .mid b{color:var(--copper2)}
+.box .item:last-child{border-bottom:0;padding-bottom:0}
+.item .th{width:48px;height:60px;background:var(--stripes);border-radius:var(--r);flex:none;overflow:hidden}
+.item .th:has(img){background:var(--cask2)}
 .item .th img{width:100%;height:100%;object-fit:contain}
-.item .mid{flex:1;min-width:0}
-.item .mid b{display:block;overflow:hidden;text-overflow:ellipsis}
-.avatar{width:44px;height:44px;border-radius:50%;background:var(--glass3);border:1px solid var(--peat);display:grid;place-items:center;font:400 1.2rem 'Young Serif',Georgia,serif;color:var(--amber2);flex:none}
-.rank{font:400 1.3rem 'Young Serif',Georgia,serif;color:var(--peat);width:28px;text-align:center;flex:none}
-.pill{display:inline-block;border-radius:99px;padding:2px 10px;font-size:.78rem;border:1px solid var(--line);color:var(--mute)}
-.pill.ja{color:var(--good);border-color:var(--good)}.pill.vielleicht{color:var(--amber2);border-color:var(--amber)}.pill.nein{color:var(--bad);border-color:var(--bad)}
-.bigscore{font:400 1.6rem 'Young Serif',Georgia,serif;min-width:48px;text-align:right}
+.item .mid{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.item .mid b{display:block;overflow:hidden;text-overflow:ellipsis;font:500 1.2rem var(--serif);transition:color .15s}
+.item .mid>div:empty{display:none}
+.avatar{width:40px;height:40px;border-radius:50%;border:1px solid var(--peat);display:grid;place-items:center;font:400 1.15rem var(--serif);color:var(--copper2);flex:none}
+.rank{font:400 12px var(--mono);color:var(--mute);width:24px;flex:none}
+.pill{display:inline-block;font:400 11px var(--mono);letter-spacing:.1em;text-transform:uppercase;padding:3px 10px;border:1px solid var(--line2);color:var(--mute);margin:4px 6px 0 0}
+.pill.ja{color:var(--good);border-color:var(--good)}.pill.vielleicht{color:var(--copper2);border-color:var(--copper2)}.pill.nein{color:var(--bad);border-color:var(--bad)}
+.bigscore{font:500 1.5rem var(--serif);color:var(--copper2);min-width:48px;text-align:right}
+.bigscore.none{color:var(--mute)}
+.lead{margin:0 0 12px}
+.lead b{color:var(--copper2);font-weight:500}
 
-.modal{border:0;border-radius:18px;background:var(--glass);color:var(--paper);width:min(660px,calc(100% - 20px));max-height:94vh;padding:0;border:1px solid var(--line)}
-.modal::backdrop{background:rgba(4,10,8,.78)}
-.mbody{padding:18px;overflow:auto;max-height:92vh;display:flex;flex-direction:column;gap:14px}
-.mhead{display:flex;justify-content:space-between;align-items:center}
-.mhead h2{font-size:1.35rem}
+.modal{border:1px solid var(--line);border-radius:var(--r);background:var(--cask2);color:var(--paper);width:min(640px,calc(100% - 32px));max-height:94vh;padding:0}
+.modal::backdrop{background:#0b0805d9}
+.mbody{padding:24px;overflow:auto;max-height:92vh;display:flex;flex-direction:column;gap:18px}
+.mhead{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+.mhead h2{font:400 1.6rem var(--serif)}
 .x{background:none;border:0;font-size:1.3rem;cursor:pointer;color:var(--mute)}
-.box{background:var(--glass2);border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:8px}
-.g2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.x:hover{color:var(--paper)}
+.box{border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;display:flex;flex-direction:column;gap:10px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
 @media(max-width:520px){.g3{grid-template-columns:1fr 1fr}}
-.imgrow{display:flex;gap:12px;align-items:center}
-.imgrow .pic{width:120px;aspect-ratio:3/4;border-radius:10px;overflow:hidden;font-size:2.4rem;flex:none}
-.crop{width:min(100%,300px);aspect-ratio:3/4;margin:0 auto;position:relative;overflow:hidden;background:#0e1916;border:1px solid var(--line);border-radius:12px;touch-action:none;cursor:grab;user-select:none;-webkit-user-select:none}
+.imgrow{display:flex;gap:18px;align-items:center}
+.imgrow .pic{width:120px;aspect-ratio:3/4;flex:none}
+.crop{width:min(100%,300px);aspect-ratio:3/4;margin:0 auto;position:relative;overflow:hidden;background:var(--cask);border:1px solid var(--line);border-radius:var(--r);touch-action:none;cursor:grab;user-select:none;-webkit-user-select:none}
 .crop:active{cursor:grabbing}
 .crop img{position:absolute;left:0;top:0;max-width:none;transform-origin:0 0;pointer-events:none;-webkit-user-drag:none}
 .stack{display:flex;flex-direction:column;gap:8px;flex:1;min-width:0}
 .stack .btn{width:100%;white-space:normal}
-.note{background:var(--glass3);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:.9rem}
+.note{border:1px solid var(--line);border-radius:var(--r);padding:10px 12px;font-size:14px}
 .note.bad{border-color:var(--bad)}
 .note.bad b{color:var(--bad)}
-.reader{width:100%;min-height:120px;border-radius:12px;overflow:hidden;background:#0e1916}
-.res{display:flex;gap:10px;align-items:center;text-align:left;background:var(--glass3);border:1px solid var(--line);border-radius:10px;padding:8px;cursor:pointer;width:100%}
-.res:hover{border-color:var(--amber)}
-.res img,.res .ph{width:42px;height:52px;object-fit:contain;background:#0e1916;border-radius:6px;display:grid;place-items:center;flex:none}
-.res small{display:block;color:var(--mute)}
-.results{display:flex;flex-direction:column;gap:6px}
+.reader{width:100%;min-height:120px;border-radius:var(--r);overflow:hidden;background:var(--cask)}
+.res{display:flex;gap:12px;align-items:center;text-align:left;background:transparent;border:0;border-bottom:1px solid var(--line);padding:8px 0;cursor:pointer;width:100%}
+.res:hover b{color:var(--copper2)}
+.res img,.res .ph{width:40px;height:50px;object-fit:contain;background:var(--stripes);border-radius:var(--r);display:grid;place-items:center;flex:none;font:400 1.1rem var(--serif);color:var(--mute)}
+.res img{background:var(--cask)}
+.res b{font-weight:500}
+.res small{display:block;color:var(--mute);font-size:12px}
+.results{display:flex;flex-direction:column}
+.results label{margin-top:10px}
 .chips{display:flex;flex-wrap:wrap;gap:6px}
-.chip{border:1px solid var(--line);background:none;border-radius:99px;padding:5px 12px;cursor:pointer;font-size:.88rem;color:var(--mute)}
-.chip.on{background:var(--amber);color:#201508;border-color:var(--amber);font-weight:700}
+.chip{border:1px solid var(--line2);background:none;border-radius:var(--r);padding:5px 12px;cursor:pointer;font-size:13px;color:var(--mute)}
+.chip:hover{border-color:var(--copper);color:var(--paper)}
+.chip.on{background:var(--copper);color:var(--ink);border-color:var(--copper);font-weight:600}
 .links{display:flex;flex-wrap:wrap;gap:6px}
-.links a{font-size:.85rem;color:var(--amber2);border:1px solid var(--line);border-radius:99px;padding:3px 10px;text-decoration:none}
-.links a:hover{border-color:var(--amber)}
+.links a{font:400 12px var(--mono);color:var(--copper2);border:1px solid var(--line2);border-radius:var(--r);padding:4px 10px;text-decoration:none}
+.links a:hover{border-color:var(--copper)}
 .seg{display:flex;gap:6px}.seg button{flex:1}
-.seg .on{background:var(--amber);color:#201508;border-color:var(--amber);font-weight:700}
-.range-val{font:400 1.2rem 'Young Serif',Georgia,serif;color:var(--amber2);min-width:64px;text-align:right}
-@media(prefers-reduced-motion:no-preference){.card,.item,.btn{transition:border-color .15s}}
+.seg .on{background:var(--copper);color:var(--ink);border-color:var(--copper);font-weight:600}
+.range-val{font:400 1.2rem var(--serif);color:var(--copper2);min-width:64px;text-align:right}
+code{font-family:var(--mono);font-size:.9em;color:var(--copper2)}
+@media(max-width:600px){
+  .hwrap{padding-left:16px;padding-right:16px}
+  main{padding:20px 16px 80px}
+  .top h1{font-size:1.45rem}
+  .top .kicker{display:none}
+  #tabs{gap:22px}
+  input,select,textarea{font-size:16px} /* verhindert Zoom auf iOS */
+  .mbody{padding:18px}
+}
+@media(prefers-reduced-motion:no-preference){.card{transition:transform .15s}.btn,.chip,.links a{transition:border-color .15s,background-color .15s}}
 </style>
 </head>
 <body>
 <header class="top">
-  <div class="row sb"><h1>Whisky Vault</h1><span id="chip" class="muted sm"></span></div>
-  <nav id="tabs" hidden>
-    <button data-tab="sammlung">Sammlung</button>
-    <button data-tab="degustation">Degustation</button>
-    <button data-tab="kaufliste">Kaufliste</button>
-    <button data-tab="freunde">Freunde<i class="dot" id="frdot" hidden></i></button>
-    <button data-tab="konto">Konto</button>
-  </nav>
+  <div class="hwrap">
+    <div class="brand"><div><h1>Whisky Vault</h1><span class="kicker">Privatarchiv</span></div><span id="chip"></span></div>
+    <nav id="tabs" hidden>
+      <button data-tab="sammlung">Sammlung</button>
+      <button data-tab="degustation">Degustation</button>
+      <button data-tab="kaufliste">Kaufliste</button>
+      <button data-tab="freunde">Freunde<i class="dot" id="frdot" hidden></i></button>
+      <button data-tab="konto">Konto</button>
+    </nav>
+  </div>
 </header>
 <main id="view"></main>
 <div class="toast" id="toast" hidden></div>
@@ -190,7 +242,8 @@ const num=v=>(v===''||v==null||isNaN(Number(String(v).replace(',','.'))))?null:N
 const today=()=>new Date().toISOString().slice(0,10);
 const fmtDate=d=>d?new Date(d).toLocaleDateString('de-CH'):'';
 const money=n=>(n==null||n===''||isNaN(n))?'–':new Intl.NumberFormat('de-CH',{style:'currency',currency:D.settings.currency}).format(n);
-const scoreColor=s=>`hsl(${Math.max(0,Math.min(120,(s-50)*2.4))} 60% 55%)`;
+const PH=(t='Flaschenfoto')=>`<span class="ph-l">${t}</span>`;
+const meta=b=>[b.age?b.age+' Jahre':'ohne Alter',b.abv?b.abv+' %':''].filter(Boolean).join(' · ');
 const TAGS=['Rauchig','Torfig','Fruchtig','Süss','Würzig','Sherry','Vanille','Eiche','Maritim','Malzig','Floral','Cremig','Scharf','Bitter'];
 function toast(m){const t=$('#toast');t.textContent=m;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>t.hidden=true,4500)}
 const fail=e=>{console.error(e);toast('Speichern fehlgeschlagen: '+(e.code||e.message))};
@@ -417,7 +470,7 @@ function editImage(src){
     $('[data-ok]',d).onclick=()=>{
       try{
         const k=480/W,c=document.createElement('canvas');c.width=480;c.height=Math.round(H*k);
-        const g=c.getContext('2d');g.fillStyle='#0e1916';g.fillRect(0,0,c.width,c.height);
+        const g=c.getContext('2d');g.fillStyle='#17120e';g.fillRect(0,0,c.width,c.height);
         g.drawImage(im,x*k,y*k,nw*sc()*k,nh*sc()*k);
         finish(c.toDataURL('image/jpeg',.82));
       }catch{alert('Bild kann nicht bearbeitet werden.');finish(null)}
@@ -437,7 +490,7 @@ const loadH5=()=>h5??=new Promise((res,rej)=>{const s=document.createElement('sc
 async function scanBarcode(){
   try{await loadH5()}catch(e){alert(e.message);return null}
   return new Promise(resolve=>{
-    const d=modal(`<div class="mhead"><h2>Barcode scannen</h2><button class="x" data-close aria-label="Schliessen">✕</button></div><div id="reader" class="reader"></div><p class="muted sm" id="rmsg">Halte den Strichcode (EAN) ruhig und gut beleuchtet in den Rahmen.</p><div class="row"><button class="btn" id="mphoto">📷 Foto vom Barcode</button><input type="file" accept="image/*" capture="environment" hidden id="mfile"></div><div class="row"><input id="mcode" placeholder="oder Nummer eintippen" inputmode="numeric"><button class="btn pri" id="mok">OK</button></div>`);
+    const d=modal(`<div class="mhead"><h2>Barcode scannen</h2><button class="x" data-close aria-label="Schliessen">✕</button></div><div id="reader" class="reader"></div><p class="muted sm" id="rmsg">Halte den Strichcode (EAN) ruhig und gut beleuchtet in den Rahmen.</p><div class="row"><button class="btn" id="mphoto">Foto vom Barcode</button><input type="file" accept="image/*" capture="environment" hidden id="mfile"></div><div class="row"><input id="mcode" placeholder="oder Nummer eintippen" inputmode="numeric"><button class="btn pri" id="mok">OK</button></div>`);
     let q,done=false;
     const finish=async v=>{if(done)return;done=true;try{await q?.stop()}catch{}try{q?.clear()}catch{}d.close();resolve(v)};
     d.addEventListener('close',()=>finish(null));
@@ -462,7 +515,7 @@ async function lookupInto(el,q,onPick){
   try{
     const items=/^\d{8,14}$/.test(q)?await codeLookup(q):await searchAll(q);
     if(!items.length){el.innerHTML='<div class="note"><b>Nichts gefunden.</b> Versuche nur die Marke (z. B. „Glen Moray“), scanne den Barcode oder trage die Daten von Hand ein.</div>';return}
-    el.innerHTML=items.map((it,i)=>`<button class="res" data-i="${i}">${it.thumb?`<img src="${esc(it.thumb)}" alt="">`:'<span class="ph">🥃</span>'}<span><b>${esc(it.name)}</b><small>${esc([it.note||it.distillery,it.abv?it.abv+' %':'',it.volume?it.volume+' ml':'',it.barcode,it.src].filter(Boolean).join(' · '))}</small></span></button>`).join('');
+    el.innerHTML=items.map((it,i)=>`<button class="res" data-i="${i}">${it.thumb?`<img src="${esc(it.thumb)}" alt="">`:'<span class="ph"></span>'}<span><b>${esc(it.name)}</b><small>${esc([it.note||it.distillery,it.abv?it.abv+' %':'',it.volume?it.volume+' ml':'',it.barcode,it.src].filter(Boolean).join(' · '))}</small></span></button>`).join('');
     $$('.res',el).forEach(b=>b.onclick=()=>onPick(items[b.dataset.i]));
   }catch(e){el.innerHTML=`<div class="note bad"><b>Suche nicht erreichbar.</b> ${esc(e.message)}. Prüfe deine Verbindung oder trage die Daten von Hand ein.<div class="row" style="margin-top:8px"><button class="btn" data-retry>Nochmals versuchen</button></div></div>`;$('[data-retry]',el).onclick=()=>lookupInto(el,q,onPick)}
 }
@@ -547,14 +600,14 @@ const sorters={
 function rColl(v){
   const n=D.bottles.length,ein=D.bottles.reduce((s,b)=>s+(b.price||0),0),wert=D.bottles.reduce((s,b)=>s+(b.market?.price??b.price??0),0);
   const rated=D.bottles.filter(b=>b.rating!=null),avg=rated.length?Math.round(rated.reduce((s,b)=>s+b.rating,0)/rated.length):null;
-  v.innerHTML=`<div class="stats">
-    <div class="stat"><b>${n}</b><span>Flaschen</span></div>
-    <div class="stat"><b>${money(ein)}</b><span>Einstand gesamt</span></div>
-    <div class="stat"><b>${money(wert)}</b><span>Marktwert (wo bekannt, sonst Einstand)</span></div>
-    <div class="stat"><b>${avg??'–'}</b><span>Ø Note</span></div></div>
+  v.innerHTML=`<section class="stats">
+    <div class="stat"><span>Flaschen</span><b>${n}</b></div>
+    <div class="stat"><span>Einstand</span><b>${money(ein)}</b></div>
+    <div class="stat" title="Marktwert, wo bekannt, sonst Einstand"><span>Marktwert</span><b>${money(wert)}</b></div>
+    <div class="stat"><span>Ø Note</span><b>${avg??'–'}</b></div></section>
   <div class="tools"><input id="q" type="search" placeholder="Sammlung durchsuchen" value="${esc(UI.q)}">
     <select id="sort"><option value="name">Name A–Z</option><option value="rating">Beste Note</option><option value="price">Teuerste</option><option value="fill">Fast leer zuerst</option><option value="new">Neueste</option></select>
-    <button class="btn pri" id="add">+ Whisky</button></div><div id="grid"></div>`;
+    <button class="btn pri" id="add">+ Flasche erfassen</button></div><div id="grid"></div>`;
   $('#sort').value=UI.sort;
   $('#q').oninput=e=>{UI.q=e.target.value;fillGrid()};
   $('#sort').onchange=e=>{UI.sort=e.target.value;fillGrid()};
@@ -565,35 +618,35 @@ function fillGrid(){
   const q=UI.q.trim().toLowerCase();
   const list=D.bottles.filter(b=>!q||[b.name,b.distillery,b.barcode,b.notes].join(' ').toLowerCase().includes(q)).sort(sorters[UI.sort]);
   const g=$('#grid');
-  if(!list.length){g.className='';g.innerHTML=D.bottles.length?'<div class="empty">Keine Treffer.</div>':'<div class="empty"><b>Noch keine Flaschen</b>Tippe auf „+ Whisky“ und such deine erste Flasche über Name oder Barcode.</div>';return}
+  if(!list.length){g.className='';g.innerHTML=D.bottles.length?'<div class="empty">Keine Treffer.</div>':'<div class="empty"><b>Noch keine Flaschen</b>Tippe auf „+ Flasche erfassen“ und such deine erste Flasche über Name oder Barcode.</div>';return}
   g.className='grid';
   g.innerHTML=list.map(b=>{
     const d=(b.market?.price!=null&&b.price!=null)?b.market.price-b.price:null;
-    return `<article class="card" data-id="${b.id}"><div class="pic">${b.image?`<img loading="lazy" src="${esc(b.image)}" alt="">`:'🥃'}<div class="gauge" title="Füllstand ${b.fill}%"><i style="height:${b.fill}%"></i></div>${b.rating!=null?`<b class="score" style="--c:${scoreColor(b.rating)}">${b.rating}</b>`:''}</div>
-    <div class="cbody"><h3>${esc(b.name)}</h3><p class="muted">${esc([b.distillery,b.age?b.age+' J.':'',b.abv?b.abv+' %':''].filter(Boolean).join(' · '))}</p>
-    <div class="row sb sm"><span>${b.fill}% voll</span><span>Einstand ${money(b.price)}</span></div>
-    ${b.market?.price!=null?`<div class="mk">Markt ab <b>${money(b.market.price)}</b>${d!=null&&d!==0?` <span class="${d>0?'up':'down'}">(${d>0?'+':''}${money(d)})</span>`:''}</div>`:''}</div></article>`}).join('');
+    return `<article class="card" data-id="${b.id}"><div class="pic">${b.image?`<img loading="lazy" src="${esc(b.image)}" alt="">`:PH()}<div class="gauge" title="Füllstand ${b.fill}%"><i style="height:${b.fill}%"></i></div>${b.rating!=null?`<b class="score">${b.rating}</b>`:''}</div>
+    <div class="cbody">${b.distillery?`<div class="dist">${esc(b.distillery)}</div>`:''}<h3>${esc(b.name)}</h3><p>${esc(meta(b))}</p>
+    <div class="cfoot"><span>${b.fill} % voll</span><span title="Einstand">${money(b.price)}</span></div>
+    ${b.market?.price!=null?`<div class="mk">Markt ab <b>${money(b.market.price)}</b>${d!=null&&d!==0?` <span class="${d>0?'up':'down'}">${d>0?'+':'−'}${money(Math.abs(d))}</span>`:''}</div>`:''}</div></article>`}).join('');
   $$('.card',g).forEach(c=>c.onclick=()=>openBottle(c.dataset.id));
 }
 function openBottle(id,pre){
   const isNew=!id;
   const b=id?structuredClone(D.bottles.find(x=>x.id===id)):Object.assign({id:uid(),name:'',distillery:'',age:null,abv:null,volume:700,barcode:'',image:'',fill:100,price:null,rating:null,notes:'',market:null,added:Date.now()},pre||{});
-  const d=modal(`<div class="mhead"><h2>${isNew?'Whisky hinzufügen':'Whisky bearbeiten'}</h2><button class="x" data-close aria-label="Schliessen">✕</button></div>
-  <div class="box"><label style="margin:0">Online abgleichen</label><div class="row"><input name="q" placeholder="Name oder Barcode (EAN)" enterkeyhint="search" style="min-width:0"><button class="btn" data-a="search">Suchen</button><button class="btn" data-a="scan" title="Barcode scannen" aria-label="Barcode scannen">📷</button></div><div class="results" data-r></div></div>
-  <div class="imgrow"><div class="pic" data-pic></div><div class="stack"><button class="btn" data-a="photo">Foto wählen / aufnehmen</button><button class="btn" data-a="crop">Bild ausrichten</button><button class="btn ghost" data-a="rmimg">Bild entfernen</button><input type="file" accept="image/*" hidden data-file></div></div>
+  const d=modal(`<div class="mhead"><h2>${isNew?'Flasche erfassen':esc(b.name)}</h2><button class="x" data-close aria-label="Schliessen">✕</button></div>
+  <div class="box"><label style="margin:0">Online abgleichen</label><div class="row"><input name="q" placeholder="Name oder Barcode (EAN)" enterkeyhint="search" style="min-width:0"><button class="btn" data-a="search">Suchen</button><button class="btn" data-a="scan" title="Barcode scannen">Scannen</button></div><div class="results" data-r></div></div>
+  <div class="imgrow"><div class="pic" data-pic></div><div class="stack"><button class="btn" data-a="photo">Foto wählen</button><button class="btn" data-a="crop">Bild ausrichten</button><button class="btn ghost" data-a="rmimg">Bild entfernen</button><input type="file" accept="image/*" hidden data-file></div></div>
   <div><label>Name</label><input name="name" value="${esc(b.name)}" placeholder="z. B. Lagavulin 16"></div>
   <div class="g2"><div><label>Brennerei / Marke</label><input name="distillery" value="${esc(b.distillery)}"></div><div><label>Barcode</label><input name="barcode" inputmode="numeric" value="${esc(b.barcode)}"></div></div>
   <div class="g3"><div><label>Alter (Jahre)</label><input name="age" type="number" min="0" value="${b.age??''}"></div><div><label>Alkohol (% vol)</label><input name="abv" type="number" step="0.1" value="${b.abv??''}"></div><div><label>Inhalt (ml)</label><input name="volume" type="number" value="${b.volume??''}"></div></div>
-  <div><label>Füllstand</label><div class="row"><input name="fill" type="range" min="0" max="100" step="5" value="${b.fill}"><span class="range-val" data-fv>${b.fill}%</span></div></div>
+  <div><label>Füllstand</label><div class="row"><input name="fill" type="range" min="0" max="100" step="5" value="${b.fill}"><span class="range-val" data-fv>${b.fill} %</span></div></div>
   <div class="g2"><div><label>Einstandspreis (privat)</label><input name="price" type="number" step="0.05" min="0" inputmode="decimal" value="${b.price??''}"></div><div><label>Note (0–100)</label><input name="rating" type="number" min="0" max="100" inputmode="numeric" value="${b.rating??''}" placeholder="–"></div></div>
   ${PRICE_HTML('Aktueller Marktpreis (privat)')}
   <div><label>Notizen (für Freunde sichtbar, wenn du teilst)</label><textarea name="notes">${esc(b.notes)}</textarea></div>
   <div class="row sb"><div>${isNew?'':'<button class="btn danger" data-a="del">Löschen</button>'}</div><div class="row"><button class="btn ghost" data-close>Abbrechen</button><button class="btn pri" data-a="save">Speichern</button></div></div>`);
   const f=n=>d.querySelector(`[name=${n}]`);
   let img=b.image,src0=b.image;
-  const pic=()=>{$('[data-pic]',d).innerHTML=img?`<img src="${esc(img)}" alt="">`:'🥃'};pic();
+  const pic=()=>{$('[data-pic]',d).innerHTML=img?`<img src="${esc(img)}" alt="">`:PH('Foto')};pic();
   if(b.market?.price!=null)f('mprice').value=b.market.price;
-  f('fill').oninput=()=>$('[data-fv]',d).textContent=f('fill').value+'%';
+  f('fill').oninput=()=>$('[data-fv]',d).textContent=f('fill').value+' %';
   const pick=async it=>{
     f('name').value=it.name;f('distillery').value=it.distillery||f('distillery').value;f('barcode').value=it.barcode||'';
     if(it.abv)f('abv').value=it.abv;if(it.volume)f('volume').value=it.volume;
@@ -629,14 +682,14 @@ function rTast(v){
   if(UI.sessionId&&!D.sessions.find(s=>s.id===UI.sessionId))UI.sessionId=null;
   if(!UI.sessionId&&ses[0])UI.sessionId=ses[0].id;
   const cur=D.sessions.find(s=>s.id===UI.sessionId);
-  let html=`<div class="tools"><select id="ses" ${ses.length?'':'disabled'} style="flex:1 1 200px">${ses.map(s=>`<option value="${s.id}" ${s.id===UI.sessionId?'selected':''}>${esc(s.name)} – ${fmtDate(s.date)}</option>`).join('')||'<option>Noch keine Degustation</option>'}</select><button class="btn pri" id="newses">+ Neue Degustation</button>${cur?'<button class="btn ghost danger" id="delses">Löschen</button>':''}</div>`;
+  let html=`<h2 class="ptitle">Degustationen</h2><div class="tools"><select id="ses" ${ses.length?'':'disabled'} style="flex:1 1 200px">${ses.map(s=>`<option value="${s.id}" ${s.id===UI.sessionId?'selected':''}>${esc(s.name)} – ${fmtDate(s.date)}</option>`).join('')||'<option>Noch keine Degustation</option>'}</select><button class="btn pri" id="newses">+ Neue Degustation</button>${cur?'<button class="btn ghost danger" id="delses">Löschen</button>':''}</div>`;
   if(!cur){v.innerHTML=html+'<div class="empty"><b>Starte eine Degustation</b>Lege einen Abend an, such die Whiskys per Name oder Barcode und bewerte jeden. Am Ende siehst du, was dir geschmeckt hat.</div>';bindSes();return}
-  html+=`<div class="box" style="margin-bottom:16px"><label style="margin:0">Whisky zur Degustation hinzufügen</label><div class="row"><input id="tq" placeholder="Name oder Barcode (Sammlung & online)"><button class="btn" id="tgo">Suchen</button><button class="btn" id="tscan" title="Barcode scannen">📷</button></div><div class="results" id="tres"></div></div>`;
+  html+=`<div class="box" style="margin-bottom:16px"><label style="margin:0">Whisky zur Degustation hinzufügen</label><div class="row"><input id="tq" placeholder="Name oder Barcode (Sammlung & online)"><button class="btn" id="tgo">Suchen</button><button class="btn" id="tscan" title="Barcode scannen">Scannen</button></div><div class="results" id="tres"></div></div>`;
   const ts=D.tastings.filter(t=>t.sessionId===cur.id).sort((a,b)=>(b.score??-1)-(a.score??-1)||a.created-b.created);
   if(!ts.length)html+='<div class="empty"><b>Noch nichts im Glas</b>Such oben deinen ersten Whisky.</div>';
   else{
     const best=ts.find(t=>t.score!=null);
-    html+=`<p class="muted sm">${ts.length} Whisky${ts.length>1?'s':''}${best?` · Favorit: <b style="color:var(--amber2)">${esc(best.whisky.name)}</b> (${best.score})`:''}</p><div class="list">${ts.map((t,i)=>tastingItem(t,t.score!=null?i+1:'')).join('')}</div>`;
+    html+=`<p class="muted sm lead">${ts.length} Whisky${ts.length>1?'s':''}${best?` · Favorit: <b>${esc(best.whisky.name)}</b> (${best.score})`:''}</p><div class="rows">${ts.map((t,i)=>tastingItem(t,t.score!=null?i+1:'')).join('')}</div>`;
   }
   v.innerHTML=html;bindSes();
   $$('.item',v).forEach(it=>it.onclick=()=>openTasting(it.dataset.id));
@@ -646,7 +699,7 @@ function rTast(v){
   $('#tscan').onclick=async()=>{const c=await scanBarcode();if(c){$('#tq').value=c;go(c)}};
 }
 function tastingItem(t,rank){
-  return `<div class="item" data-id="${t.id}"><div class="rank">${rank}</div><div class="th">${t.whisky.image?`<img src="${esc(t.whisky.image)}" alt="">`:'🥃'}</div><div class="mid"><b>${esc(t.whisky.name)}</b><span class="muted sm">${esc([t.whisky.distillery,(t.tags||[]).join(', ')].filter(Boolean).join(' · '))}</span><div>${t.buy?`<span class="pill ${t.buy}">${{ja:'Kaufen',vielleicht:'Vielleicht',nein:'Nein'}[t.buy]}</span>`:''}${t.bottleId?' <span class="pill">in Sammlung</span>':''}</div></div><div class="bigscore" ${t.score!=null?`style="color:${scoreColor(t.score)}"`:''}>${t.score??'–'}</div></div>`;
+  return `<div class="item" data-id="${t.id}"><div class="rank">${rank}</div><div class="th">${t.whisky.image?`<img src="${esc(t.whisky.image)}" alt="">`:''}</div><div class="mid"><b>${esc(t.whisky.name)}</b><span class="muted sm">${esc([t.whisky.distillery,(t.tags||[]).join(', ')].filter(Boolean).join(' · '))}</span><div>${t.buy?`<span class="pill ${t.buy}">${{ja:'Kaufen',vielleicht:'Vielleicht',nein:'Nein'}[t.buy]}</span>`:''}${t.bottleId?'<span class="pill">in Sammlung</span>':''}</div></div><div class="bigscore${t.score==null?' none':''}">${t.score??'–'}</div></div>`;
 }
 function bindSes(){
   $('#newses').onclick=()=>{
@@ -659,8 +712,8 @@ function bindSes(){
 async function tastingSearch(q,el){
   const ql=q.toLowerCase();
   const own=D.bottles.filter(b=>[b.name,b.distillery,b.barcode].join(' ').toLowerCase().includes(ql));
-  const ownHtml=own.map(b=>`<button class="res" data-own="${b.id}">${b.image?`<img src="${esc(b.image)}" alt="">`:'<span class="ph">🥃</span>'}<span><b>${esc(b.name)}</b><small>Aus meiner Sammlung${b.barcode?' · '+esc(b.barcode):''}</small></span></button>`).join('');
-  el.innerHTML=(ownHtml?`<label>Meine Sammlung</label>${ownHtml}`:'')+`<label>Online</label><div id="onl"></div><button class="res" data-manual><span class="ph">✏️</span><span><b>Von Hand hinzufügen: „${esc(q)}“</b><small>Falls online nichts passt</small></span></button>`;
+  const ownHtml=own.map(b=>`<button class="res" data-own="${b.id}">${b.image?`<img src="${esc(b.image)}" alt="">`:'<span class="ph"></span>'}<span><b>${esc(b.name)}</b><small>Aus meiner Sammlung${b.barcode?' · '+esc(b.barcode):''}</small></span></button>`).join('');
+  el.innerHTML=(ownHtml?`<label>Meine Sammlung</label>${ownHtml}`:'')+`<label>Online</label><div id="onl"></div><button class="res" data-manual><span class="ph">+</span><span><b>Von Hand hinzufügen: „${esc(q)}“</b><small>Falls online nichts passt</small></span></button>`;
   $$('[data-own]',el).forEach(b=>b.onclick=()=>{const x=D.bottles.find(y=>y.id===b.dataset.own);addTasting(x,x.id)});
   $('[data-manual]',el).onclick=()=>addTasting({name:/^\d{8,14}$/.test(q)?'':q,barcode:/^\d{8,14}$/.test(q)?q:''},null);
   await lookupInto($('#onl',el),q,async it=>{it.image=await cacheImage(it.image);addTasting(it,null)});
@@ -674,7 +727,7 @@ function addTasting(w,bottleId){
 function openTasting(id){
   const orig=D.tastings.find(x=>x.id===id);if(!orig)return;const t=structuredClone(orig);
   const d=modal(`<div class="mhead"><h2>Bewertung</h2><button class="x" data-close aria-label="Schliessen">✕</button></div>
-  <div class="imgrow"><div class="pic" data-pic></div><div class="stack"><div><label>Name</label><input name="name" value="${esc(t.whisky.name)}"></div><div><label>Barcode</label><input name="barcode" inputmode="numeric" value="${esc(t.whisky.barcode)}"></div><button class="btn" data-a="photo">Foto wählen / aufnehmen</button><button class="btn" data-a="crop">Bild ausrichten</button><input type="file" accept="image/*" hidden data-file></div></div>
+  <div class="imgrow"><div class="pic" data-pic></div><div class="stack"><div><label>Name</label><input name="name" value="${esc(t.whisky.name)}"></div><div><label>Barcode</label><input name="barcode" inputmode="numeric" value="${esc(t.whisky.barcode)}"></div><button class="btn" data-a="photo">Foto wählen</button><button class="btn" data-a="crop">Bild ausrichten</button><input type="file" accept="image/*" hidden data-file></div></div>
   <div><label>Punkte (0–100)</label><div class="row"><input name="score" type="range" min="0" max="100" step="1" value="${t.score??75}"><span class="range-val" data-sv>${t.score??'–'}</span></div><div class="sm muted">Regler bewegen, um eine Note zu setzen.</div></div>
   <div><label>Geschmacksrichtung</label><div class="chips">${TAGS.map(g=>`<button class="chip ${(t.tags||[]).includes(g)?'on':''}" data-tag="${g}">${g}</button>`).join('')}</div></div>
   <div><label>Nase</label><textarea name="nose">${esc(t.nose)}</textarea></div>
@@ -686,7 +739,7 @@ function openTasting(id){
     <button class="btn pri" data-a="save">Speichern</button></div></div>`);
   const f=n=>d.querySelector(`[name=${n}]`);
   let img=t.whisky.image,src0=t.whisky.image,touched=t.score!=null,buy=t.buy;
-  const pic=()=>{$('[data-pic]',d).innerHTML=img?`<img src="${esc(img)}" alt="">`:'🥃'};pic();
+  const pic=()=>{$('[data-pic]',d).innerHTML=img?`<img src="${esc(img)}" alt="">`:PH('Foto')};pic();
   if(t.price!=null)f('mprice').value=t.price;
   f('score').oninput=()=>{touched=true;$('[data-sv]',d).textContent=f('score').value};
   priceBox(d,{getName:()=>f('name').value,getCode:()=>f('barcode').value.trim(),getBrand:()=>t.whisky.distillery,onApply:p=>{f('mprice').value=p}});
@@ -720,10 +773,10 @@ function rBuy(v){
   const all=UI.kaufMode==='alle';
   let list=D.tastings.filter(t=>all?true:(!t.bottleId&&(t.buy==='ja'||t.buy==='vielleicht')));
   list.sort((a,b)=>(all?0:((b.buy==='ja')-(a.buy==='ja')))||(b.score??-1)-(a.score??-1));
-  v.innerHTML=`<div class="tools"><div class="seg" style="flex:1"><button class="btn ${all?'':'on'}" data-m="kauf">Kaufliste</button><button class="btn ${all?'on':''}" data-m="alle">Alle Bewertungen</button></div></div>
-  ${list.length?`<div class="list">${list.map((t,i)=>{
+  v.innerHTML=`<h2 class="ptitle">${all?'Alle Bewertungen':'Kaufliste'}</h2><div class="tools"><div class="seg" style="flex:1"><button class="btn ${all?'':'on'}" data-m="kauf">Kaufliste</button><button class="btn ${all?'on':''}" data-m="alle">Alle Bewertungen</button></div></div>
+  ${list.length?`<div class="rows">${list.map((t,i)=>{
     const ses=D.sessions.find(s=>s.id===t.sessionId);
-    return `<div class="item" data-id="${t.id}"><div class="rank">${i+1}</div><div class="th">${t.whisky.image?`<img src="${esc(t.whisky.image)}" alt="">`:'🥃'}</div><div class="mid"><b>${esc(t.whisky.name)}</b><span class="muted sm">${esc(ses?ses.name:'')}</span><div>${t.buy?`<span class="pill ${t.buy}">${{ja:'Kaufen',vielleicht:'Vielleicht',nein:'Nein'}[t.buy]}</span>`:''} ${t.price!=null?`<span class="pill">ab ${money(t.price)}</span>`:''}${t.bottleId?' <span class="pill">in Sammlung</span>':''}</div></div><div class="bigscore" ${t.score!=null?`style="color:${scoreColor(t.score)}"`:''}>${t.score??'–'}</div></div>`}).join('')}</div>`
+    return `<div class="item" data-id="${t.id}"><div class="rank">${i+1}</div><div class="th">${t.whisky.image?`<img src="${esc(t.whisky.image)}" alt="">`:''}</div><div class="mid"><b>${esc(t.whisky.name)}</b><span class="muted sm">${esc([ses?.name,t.price!=null?'ab '+money(t.price):''].filter(Boolean).join(' · '))}</span><div>${t.buy?`<span class="pill ${t.buy}">${{ja:'Kaufen',vielleicht:'Vielleicht',nein:'Nein'}[t.buy]}</span>`:''}${t.bottleId?'<span class="pill">in Sammlung</span>':''}</div></div><div class="bigscore${t.score==null?' none':''}">${t.score??'–'}</div></div>`}).join('')}</div>`
   :`<div class="empty"><b>${all?'Noch keine Bewertungen':'Die Kaufliste ist leer'}</b>${all?'Bewerte Whiskys im Tab Degustation.':'Whiskys, bei denen du „Ja“ oder „Vielleicht“ wählst, landen hier – sortiert nach Note. Tippe einen Eintrag an, um den aktuellen Marktpreis zu prüfen.'}</div>`}`;
   $$('[data-m]',v).forEach(b=>b.onclick=()=>{UI.kaufMode=b.dataset.m;render()});
   $$('.item',v).forEach(it=>it.onclick=()=>openTasting(it.dataset.id));
@@ -787,9 +840,9 @@ const iHave=b=>D.bottles.some(x=>(b.barcode&&x.barcode===b.barcode)||x.name.trim
 function rFriendView(v){
   const F=UI.friend,p=FR.profiles[F.id]||{};
   const rated=F.items.filter(b=>b.rating!=null),avg=rated.length?Math.round(rated.reduce((s,b)=>s+b.rating,0)/rated.length):null;
-  v.innerHTML=`<div class="tools"><button class="btn" id="back">← Zurück</button><h2 style="flex:1">${esc(p.name||'Freund')}</h2></div>
+  v.innerHTML=`<div class="tools"><button class="btn" id="back">← Zurück</button><h2 class="ptitle" style="flex:1;margin:0">${esc(p.name||'Freund')}</h2></div>
   ${F.loading?'<p class="muted">Lade Sammlung …</p>':F.error?`<div class="empty">${esc(F.error)}</div>`:`
-  <div class="stats"><div class="stat"><b>${F.items.length}</b><span>Flaschen</span></div><div class="stat"><b>${avg??'–'}</b><span>Ø Note</span></div><div class="stat"><b>${F.items.filter(b=>!iHave(b)).length}</b><span>die du nicht hast</span></div></div>
+  <section class="stats"><div class="stat"><span>Flaschen</span><b>${F.items.length}</b></div><div class="stat"><span>Ø Note</span><b>${avg??'–'}</b></div><div class="stat"><span>Fehlen dir</span><b>${F.items.filter(b=>!iHave(b)).length}</b></div></section>
   <div class="tools"><input id="fq" type="search" placeholder="Sammlung durchsuchen" value="${esc(F.q)}"><label class="chk"><input type="checkbox" id="fnew" ${F.onlyNew?'checked':''}> nur was ich nicht habe</label></div><div id="fgrid"></div>`}`;
   $('#back').onclick=()=>{UI.friend=null;render()};
   if(F.loading||F.error)return;
@@ -799,7 +852,7 @@ function rFriendView(v){
     const g=$('#fgrid');
     if(!list.length){g.className='';g.innerHTML='<div class="empty">'+(F.items.length?'Keine Treffer.':'Noch keine Flaschen freigegeben.')+'</div>';return}
     g.className='grid';
-    g.innerHTML=list.map((b,i)=>`<article class="card" data-i="${i}"><div class="pic">${b.image?`<img loading="lazy" src="${esc(b.image)}" alt="">`:'🥃'}<div class="gauge"><i style="height:${b.fill}%"></i></div>${b.rating!=null?`<b class="score" style="--c:${scoreColor(b.rating)}">${b.rating}</b>`:''}</div><div class="cbody"><h3>${esc(b.name)}</h3><p class="muted">${esc([b.distillery,b.age?b.age+' J.':'',b.abv?b.abv+' %':''].filter(Boolean).join(' · '))}</p><div>${iHave(b)?'<span class="pill ja">hast du auch</span>':''}</div></div></article>`).join('');
+    g.innerHTML=list.map((b,i)=>`<article class="card" data-i="${i}"><div class="pic">${b.image?`<img loading="lazy" src="${esc(b.image)}" alt="">`:PH()}<div class="gauge"><i style="height:${b.fill}%"></i></div>${b.rating!=null?`<b class="score">${b.rating}</b>`:''}</div><div class="cbody">${b.distillery?`<div class="dist">${esc(b.distillery)}</div>`:''}<h3>${esc(b.name)}</h3><p>${esc(meta(b))}</p><div class="cfoot"><span>${b.fill} % voll</span>${iHave(b)?'<span>hast du auch</span>':''}</div></div></article>`).join('');
     $$('.card',g).forEach(c=>c.onclick=()=>friendBottle(list[c.dataset.i],p.name));
   };
   $('#fq').oninput=e=>{F.q=e.target.value;fill()};
@@ -808,7 +861,7 @@ function rFriendView(v){
 }
 function friendBottle(b,owner){
   modal(`<div class="mhead"><h2>${esc(b.name)}</h2><button class="x" data-close aria-label="Schliessen">✕</button></div>
-  <div class="imgrow"><div class="pic">${b.image?`<img src="${esc(b.image)}" alt="">`:'🥃'}<div class="gauge"><i style="height:${b.fill}%"></i></div></div><div class="stack"><span class="muted">${esc([b.distillery,b.age?b.age+' Jahre':'',b.abv?b.abv+' %':'',b.volume?b.volume+' ml':''].filter(Boolean).join(' · '))}</span><span>Füllstand: <b>${b.fill}%</b></span><span>Note von ${esc(owner||'Freund')}: <b style="color:${b.rating!=null?scoreColor(b.rating):'inherit'}">${b.rating??'–'}</b></span>${iHave(b)?'<span class="pill ja">hast du auch</span>':''}</div></div>
+  <div class="imgrow"><div class="pic">${b.image?`<img src="${esc(b.image)}" alt="">`:PH('Foto')}<div class="gauge"><i style="height:${b.fill}%"></i></div></div><div class="stack"><span class="muted">${esc([b.distillery,b.age?b.age+' Jahre':'',b.abv?b.abv+' %':'',b.volume?b.volume+' ml':''].filter(Boolean).join(' · '))}</span><span>Füllstand: <b>${b.fill} %</b></span><span>Note von ${esc(owner||'Freund')}: <b style="color:var(--copper2)">${b.rating??'–'}</b></span>${iHave(b)?'<span class="pill ja">hast du auch</span>':''}</div></div>
   ${b.notes?`<div class="box"><label style="margin:0">Notizen</label><div style="white-space:pre-wrap">${esc(b.notes)}</div></div>`:''}
   <div class="box"><label style="margin:0">Preis prüfen</label><div class="links">${priceLinks(b.name,b.barcode,b.distillery)}</div></div>`);
 }
