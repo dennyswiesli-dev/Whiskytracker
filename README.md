@@ -5,82 +5,63 @@
 <h1 align="center">Whisky Vault</h1>
 
 <p align="center">
-  Dein privates Archiv für Sammlung, Degustationen und Kaufliste.<br>
-  Statische Webseite für GitHub Pages, mit Konto, Cloud-Sync und Freunden über Firebase.
+  <b>Das private Archiv für deine Whisky-Sammlung.</b><br>
+  Flaschen erfassen, Abende bewerten, Käufe planen und mit Freunden teilen. Alles in einer App, auf jedem Gerät.
 </p>
 
-## Funktionen
+---
 
-- **Sammlung:** Flaschen mit Bild, Füllstand, Einstandspreis, Marktpreis, Note und Notizen.
-- **Online-Abgleich:** Suche nach Name oder Barcode (Open Food Facts, UPCitemdb, Wikidata), Barcode-Scanner mit Kamera oder Foto.
-- **Bild ausrichten:** Bild verschieben und zoomen, damit das Etikett im Rahmen sitzt.
-- **Degustation:** Abende anlegen, Whiskys bewerten (Punkte, Nase, Gaumen, Abgang, Geschmacksrichtungen).
-- **Kaufliste** und **Preisvergleich** über Links (Google Shopping, toppreise.ch, idealo.de, Whiskybase).
-- **Freunde:** Sammlung per Freundescode teilen. Preise bleiben privat.
-- **Als App installierbar:** Auf dem Handy «Zum Home-Bildschirm» wählen. Offline zeigt die App die zuletzt geladene Version.
+## Warum Whisky Vault?
 
-## 1. Firebase einrichten (einmalig, ca. 10 Minuten)
+Wer ein paar Flaschen mehr im Schrank hat, kennt es: Was habe ich schon? Wie viel ist noch drin? Was hat mir am Degustationsabend eigentlich geschmeckt? Und was kostet die Flasche heute?
 
-1. <https://console.firebase.google.com> → **Projekt hinzufügen** (Google Analytics kann aus bleiben).
-2. **Build → Authentication → Los geht's → Anmeldemethode**:
-   - **E-Mail/Passwort** aktivieren.
-   - **Google** aktivieren (Support-E-Mail wählen).
-3. **Build → Firestore Database → Datenbank erstellen** (Produktionsmodus, Standort z. B. `eur3` oder `europe-west6` Zürich).
-4. Reiter **Regeln**: den Inhalt von `firestore.rules` einfügen → **Veröffentlichen**. Ohne diese Regeln ist die App nicht geschützt.
-5. **Projekteinstellungen (Zahnrad) → Allgemein → Deine Apps → Web (</>)**: App registrieren und die `firebaseConfig`-Werte kopieren.
-6. In `index.html` im Skript den Block `firebaseConfig` mit diesen Werten ersetzen.
-7. **Authentication → Einstellungen → Autorisierte Domains → Domain hinzufügen**: `<dein-name>.github.io`. Sonst scheitert die Google-Anmeldung.
+Whisky Vault beantwortet das in Sekunden. Flasche scannen oder Namen eintippen, Daten und Bild kommen automatisch, den Rest ergänzt du mit zwei Handgriffen.
 
-Die Werte in `firebaseConfig` sind nicht geheim, der Schutz liegt in den Firestore-Regeln.
+## Das kann die App
 
-## 2. Auf GitHub Pages veröffentlichen
+### Sammlung
+- Jede Flasche mit Bild, Brennerei, Alter, Alkoholgehalt, Inhalt und Notizen.
+- **Füllstand** als Regler, damit du siehst, was fast leer ist.
+- Übersicht mit Anzahl Flaschen, Einstandswert, Marktwert und Durchschnittsnote.
+- Suchen, nach Name, Note, Preis, Füllstand oder Datum sortieren, **Backup als JSON** exportieren und wieder importieren.
 
-1. Alle Dateien dieses Repos auf den Branch `main` legen.
-2. Settings → Pages → *Deploy from a branch* → `main` / `(root)`.
-3. Nach ca. einer Minute: `https://<dein-name>.github.io/<repo>/`.
-4. Optional: Settings → General → **Social preview** → `icons/social-preview.png` hochladen (Vorschaubild beim Teilen des Repos).
+### Schnell erfassen
+- **Barcode scannen** mit der Handykamera, oder ein Foto vom Strichcode machen.
+- **Online-Abgleich** nach Name oder Barcode über mehrere Datenbanken. Treffer übernimmt die App samt Bild, Marke, Alkoholgehalt und Inhalt.
+- Schreibweisen wie «Glenmoray» und «Glen Moray» findet die Suche beide.
+- **Bild ausrichten:** verschieben und zoomen, bis das Etikett perfekt im Rahmen sitzt.
 
-## Dateien
+### Degustation
+- Abende anlegen und jeden Whisky bewerten: **Punkte von 0 bis 100**, Nase, Gaumen, Abgang.
+- Geschmacksrichtungen per Tipp wählen: rauchig, torfig, fruchtig, süss, würzig, Sherry und mehr.
+- Du hältst fest, ob du ihn kaufen würdest, und siehst am Ende, was dir geschmeckt hat.
+- Bewertete Whiskys übernimmst du mit einem Tipp in die Sammlung.
 
-| Datei | Zweck |
-|---|---|
-| `index.html` | die ganze App |
-| `manifest.webmanifest` | Name, Farben und Icons für die Installation als App |
-| `sw.js` | Service Worker: lädt die App offline aus dem Zwischenspeicher, Updates kommen zuerst vom Netz |
-| `icons/icon.svg` | Logo (Vektor), auch als Favicon |
-| `icons/icon-192.png`, `icon-512.png` | App-Icons |
-| `icons/icon-maskable-512.png` | Icon für runde und eckige Masken (Android) |
-| `icons/apple-touch-icon.png` | Icon für den iPhone-Home-Bildschirm |
-| `icons/favicon-32.png` | Favicon für ältere Browser |
-| `icons/glass.svg` | Nur das Glas ohne Hintergrund |
-| `icons/social-preview.png` | Vorschaubild 1280×640 für GitHub |
+### Kaufliste und Preise
+- Die **Kaufliste** entsteht von selbst: Whiskys, bei denen du am Degustationsabend «Ja» oder «Vielleicht» wählst, landen dort, sortiert nach deiner Note.
+- **Preisvergleich** mit einem Tipp: Google Shopping, toppreise.ch, idealo.de und Whiskybase, mit Marke und Name schon eingesetzt.
+- Community-Preise (Open Prices) per Barcode, den besten Marktpreis trägst du ein.
+- In der Sammlung siehst du auf einen Blick, ob eine Flasche seit dem Kauf im Wert gestiegen oder gefallen ist.
 
-Das Logo ist ein Glencairn-Glas in den Farben der App (Fassholz `#17120e`, Kupfer `#c8813a`, Etikett `#efe6d2`).
+### Freunde
+- Teile deine Sammlung per **Freundescode**, ohne E-Mail-Adressen auszutauschen.
+- Freunde sehen Name, Bild, Füllstand, Note und Notizen.
+- **Preise, Degustationen und Kaufliste bleiben immer privat.**
+- Ein Schalter sperrt die Freigabe sofort.
 
-## Datenmodell
+### Auf jedem Gerät
+- **Anmeldung** mit E-Mail und Passwort oder mit Google. Deine Daten sind in der Cloud und auf allen Geräten gleich.
+- **Als App installierbar:** auf dem Handy «Zum Home-Bildschirm» wählen, und Whisky Vault startet wie eine App.
+- **Offline nutzbar:** Änderungen ohne Netz werden zwischengespeichert und später synchronisiert.
+- Dunkles Design im Fassholz-Look mit Kupferakzent.
 
-| Pfad | Inhalt | Wer liest |
-|---|---|---|
-| `users/{uid}` | Einstellungen | nur du |
-| `users/{uid}/bottles`, `sessions`, `tastings` | Flaschen (inkl. Preise), Degustationen, Bewertungen | nur du |
-| `profiles/{uid}` | Anzeigename, Freundescode, Freigabe-Schalter | alle angemeldeten Nutzer |
-| `profiles/{uid}/shared/{id}` | Kopie jeder Flasche **ohne Preise** | du und deine Freunde, wenn Freigabe an |
-| `requests/{absender_empfänger}` | offene Freundschaftsanfragen | Absender und Empfänger |
-| `friends/{uidA_uidB}` | bestätigte Freundschaften | die beiden Personen |
+## Unter der Haube
 
-## Freunde
+- Eine einzige Seite (`index.html`), kein Build-Schritt, kein eigener Server.
+- Konto und Datenbank über Firebase (Authentication und Firestore).
+- Produktdaten von Open Food Facts, UPCitemdb und Wikidata, Preise von Open Prices.
+- Läuft auf GitHub Pages.
 
-- Jede Person hat einen Freundescode (z. B. `K7QF-2MXP`) im Tab **Freunde**.
-- Code des Freundes eingeben → Anfrage. Die andere Person nimmt an → ihr seid befreundet.
-- Freunde sehen Name, Bild, Füllstand, Note und Notizen. **Einstandspreise, Marktpreise, Degustationen und Kaufliste bleiben privat.**
-- Der Schalter «Freunde dürfen meine Sammlung sehen» sperrt die Freigabe sofort. Freundschaft beenden entzieht den Zugriff.
-- Freunde werden bewusst nur per Code hinzugefügt, nicht per E-Mail-Suche. So lassen sich keine E-Mail-Adressen anderer Nutzer auslesen.
+## Datenschutz
 
-## Hinweise
-
-- Offline-Betrieb: Firestore speichert lokal zwischen und synchronisiert, sobald wieder Internet da ist.
-- Bilder werden verkleinert als Daten im Dokument gespeichert (Limit 1 MB pro Dokument, reicht problemlos). Es wird kein Firebase Storage benötigt.
-- Die Online-Suche ist nur so gut wie die Datenbanken dahinter. Whisky ist dort nur lückenhaft erfasst. Wenn nichts gefunden wird, lassen sich alle Felder von Hand ausfüllen.
-- Die automatische Preissuche nutzt Open Prices (Community-Preise, nur mit Barcode). Einen Live-«günstigster Händler»-Preis kann eine reine Browser-App nicht abrufen. Dafür gibt es die Vergleichslinks.
-- Nach einem Update der App kann es einmal nötig sein, die Seite neu zu laden, damit die neue Version aktiv wird.
-- Konto komplett löschen: in der Firebase-Konsole (Authentication). «Alle meine Whisky-Daten löschen» im Tab Konto entfernt Flaschen, Degustationen und Freigaben.
+Deine Sammlung gehört dir. Einstandspreise, Marktpreise, Degustationen und die Kaufliste sind nur für dich sichtbar. Freunde sehen nur, was du bewusst freigibst, und nur, wenn du die Freigabe eingeschaltet lässt. Über «Alle meine Whisky-Daten löschen» im Tab **Konto** entfernst du Flaschen, Degustationen und Freigaben jederzeit.
