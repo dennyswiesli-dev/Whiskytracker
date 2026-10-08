@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><title>Whisky Vault</title>
+  <rect width="512" height="512" fill="#17120e"/><rect y="418" width="512" height="94" fill="#c8813a"/>
+  <g transform="translate(20.5 42.8) scale(0.92)">
+  <defs>
+    <linearGradient id="wh" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e0a05a"/><stop offset=".55" stop-color="#c8813a"/><stop offset="1" stop-color="#8a5a2b"/></linearGradient>
+    <clipPath id="bowl"><path d="M200 104C192 170 150 214 150 288C150 340 196 380 256 380C316 380 362 340 362 288C362 214 320 170 312 104Z"/></clipPath>
+  </defs>
+  <g>
+    <path d="M200 104C192 170 150 214 150 288C150 340 196 380 256 380C316 380 362 340 362 288C362 214 320 170 312 104Z" fill="#efe6d2" fill-opacity=".07"/>
+    <g clip-path="url(#bowl)"><rect x="140" y="246" width="232" height="150" fill="url(#wh)"/><ellipse cx="256" cy="246" rx="120" ry="14" fill="#e8b172"/></g>
+    <path d="M214 380V394C214 404 232 410 256 410C280 410 298 404 298 394V380" fill="#efe6d2" fill-opacity=".14" stroke="#efe6d2" stroke-width="8" stroke-linejoin="round"/>
+    <path d="M200 104C192 170 150 214 150 288C150 340 196 380 256 380C316 380 362 340 362 288C362 214 320 170 312 104Z" fill="none" stroke="#efe6d2" stroke-width="8" stroke-linejoin="round"/>
+    <ellipse cx="256" cy="104" rx="56" ry="9" fill="none" stroke="#efe6d2" stroke-width="8"/>
+    <path d="M186 262C176 292 178 322 192 346" fill="none" stroke="#fff" stroke-opacity=".35" stroke-width="7" stroke-linecap="round"/>
+  </g>
+</g></svg>
