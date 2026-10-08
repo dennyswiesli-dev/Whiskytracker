@@ -195,6 +195,7 @@ code{font-family:var(--mono);font-size:.9em;color:var(--copper2)}
   .top h1{font-size:1.45rem}
   .top .kicker{display:none}
   #tabs{gap:22px}
+  @media(max-width:480px){#tabs{gap:14px;justify-content:space-between}#tabs button{font-size:11px;letter-spacing:.06em}}
   input,select,textarea{font-size:16px} /* verhindert Zoom auf iOS */
   .mbody{padding:18px}
 }
@@ -225,7 +226,7 @@ import {initializeFirestore,persistentLocalCache,persistentMultipleTabManager,do
 /* =====================================================================
    1) HIER DEINE FIREBASE-WERTE EINTRAGEN
    Firebase-Konsole → Projekteinstellungen → Allgemein → Deine Apps → Web-App → Konfiguration
-   Diese Werte sind öffentlich gedacht. Geschützt sind die Daten durch die Regeln in firestore.rules.
+   Diese Werte sind öffentlich gedacht. Geschützt sind die Daten durch die Sicherheitsregeln in Firestore.
    ===================================================================== */
 const firebaseConfig={
   apiKey:'AIzaSyCwIjBWjFpvdg_1OdEX5tRa0ywQAxcFyIs',
@@ -262,7 +263,7 @@ const fail=e=>{console.error(e);toast('Speichern fehlgeschlagen: '+(e.code||e.me
 const blankD=()=>({bottles:[],sessions:[],tastings:[],settings:{currency:'CHF'}});
 const blankFR=()=>({friends:[],incoming:[],outgoing:[],profiles:{}});
 let ME=null,PROFILE=null,D=blankD(),FR=blankFR(),LEGACY=null,unsubs=[],PENDING_NAME=null;
-let UI={tab:'sammlung',sort:'name',q:'',sessionId:null,kaufMode:'kauf',loading:true,friend:null,authMode:'login'};
+let UI={tab:'sammlung',sort:'name',filter:'alle',q:'',sessionId:null,kaufMode:'kauf',loading:true,friend:null,authMode:'login'};
 let raf;const sched=()=>{cancelAnimationFrame(raf);raf=requestAnimationFrame(render)};
 
 /* ============ Datenzugriff (Firestore) ============ */
@@ -559,7 +560,7 @@ const AUTH_ERR={
 };
 const authMsg=e=>AUTH_ERR[e.code]||('Anmeldung fehlgeschlagen ('+(e.code||e.message)+').');
 function renderSetup(v){
-  v.innerHTML=`<div class="auth"><h2>Firebase einrichten</h2><p class="muted">In <code>index.html</code> stehen noch die Platzhalter <code>DEIN_API_KEY</code> usw. Trage dort die Werte deiner Firebase-Web-App ein (Abschnitt «1) HIER DEINE FIREBASE-WERTE EINTRAGEN»).</p><div class="box"><b>Kurz:</b><span class="sm">1. Firebase-Projekt anlegen · 2. Authentication: E-Mail/Passwort und Google aktivieren · 3. Firestore-Datenbank erstellen · 4. Inhalt von <code>firestore.rules</code> bei den Regeln einfügen · 5. Web-App registrieren und Konfiguration kopieren · 6. Deine <code>github.io</code>-Domain bei den autorisierten Domains eintragen.</span></div><p class="sm muted">Die Schritt-für-Schritt-Anleitung steht in der README.</p></div>`;
+  v.innerHTML=`<div class="auth"><h2>Nicht verbunden</h2><p class="muted">Diese App ist noch nicht mit einer Datenbank verbunden. Bitte später nochmals versuchen.</p></div>`;
 }
 function renderAuth(){
   const v=$('#view');
@@ -605,7 +606,14 @@ const sorters={
   rating:(a,b)=>(b.rating??-1)-(a.rating??-1),
   price:(a,b)=>(b.price??-1)-(a.price??-1),
   fill:(a,b)=>a.fill-b.fill,
+  dist:(a,b)=>(a.distillery||'').localeCompare(b.distillery||'','de')||a.name.localeCompare(b.name,'de'),
   new:(a,b)=>(b.added||0)-(a.added||0)
+};
+const FILTERS={
+  alle:['Alle',()=>true],
+  leer:['Fast leer',b=>b.fill<=25],
+  ohnenote:['Ohne Note',b=>b.rating==null],
+  ohnepreis:['Ohne Marktpreis',b=>b.market?.price==null]
 };
 function rColl(v){
   const n=D.bottles.length,ein=D.bottles.reduce((s,b)=>s+(b.price||0),0),wert=D.bottles.reduce((s,b)=>s+(b.market?.price??b.price??0),0);
@@ -616,23 +624,28 @@ function rColl(v){
     <div class="stat" title="Marktwert, wo bekannt, sonst Einstand"><span>Marktwert</span><b>${money(wert)}</b></div>
     <div class="stat"><span>Ø Note</span><b>${avg??'–'}</b></div></section>
   <div class="tools"><input id="q" type="search" placeholder="Sammlung durchsuchen" value="${esc(UI.q)}">
-    <select id="sort"><option value="name">Name A–Z</option><option value="rating">Beste Note</option><option value="price">Teuerste</option><option value="fill">Fast leer zuerst</option><option value="new">Neueste</option></select>
-    <button class="btn pri" id="add">+ Flasche erfassen</button></div><div id="grid"></div>`;
+    <select id="sort"><option value="name">Name A–Z</option><option value="dist">Brennerei A–Z</option><option value="rating">Beste Note</option><option value="price">Teuerste</option><option value="fill">Fast leer zuerst</option><option value="new">Neueste</option></select>
+    <button class="btn pri" id="add">+ Flasche erfassen</button></div>
+  <div class="chips" id="flt" style="margin-bottom:14px"></div><div id="grid"></div>`;
   $('#sort').value=UI.sort;
   $('#q').oninput=e=>{UI.q=e.target.value;fillGrid()};
   $('#sort').onchange=e=>{UI.sort=e.target.value;fillGrid()};
   $('#add').onclick=()=>openBottle();
+  $('#flt').onclick=e=>{const c=e.target.closest('[data-f]');if(c){UI.filter=c.dataset.f;fillGrid()}};
   fillGrid();
 }
 function fillGrid(){
   const q=UI.q.trim().toLowerCase();
-  const list=D.bottles.filter(b=>!q||[b.name,b.distillery,b.barcode,b.notes].join(' ').toLowerCase().includes(q)).sort(sorters[UI.sort]);
+  if(!FILTERS[UI.filter])UI.filter='alle';
+  const base=D.bottles.filter(b=>!q||[b.name,b.distillery,b.barcode,b.notes].join(' ').toLowerCase().includes(q));
+  $('#flt').innerHTML=Object.entries(FILTERS).map(([k,[t,fn]])=>`<button class="chip ${UI.filter===k?'on':''}" data-f="${k}">${t}${k==='alle'?'':' ('+base.filter(fn).length+')'}</button>`).join('');
+  const list=base.filter(FILTERS[UI.filter][1]).sort(sorters[UI.sort]);
   const g=$('#grid');
   if(!list.length){g.className='';g.innerHTML=D.bottles.length?'<div class="empty">Keine Treffer.</div>':'<div class="empty"><b>Noch keine Flaschen</b>Tippe auf „+ Flasche erfassen“ und such deine erste Flasche über Name oder Barcode.</div>';return}
   g.className='grid';
   g.innerHTML=list.map(b=>{
     const d=(b.market?.price!=null&&b.price!=null)?b.market.price-b.price:null;
-    return `<article class="card" data-id="${b.id}"><div class="pic">${b.image?`<img loading="lazy" src="${esc(b.image)}" alt="">`:PH()}<div class="gauge" title="Füllstand ${b.fill}%"><i style="height:${b.fill}%"></i></div>${b.rating!=null?`<b class="score">${b.rating}</b>`:''}</div>
+    return `<article class="card" tabindex="0" role="button" data-id="${b.id}"><div class="pic">${b.image?`<img loading="lazy" src="${esc(b.image)}" alt="">`:PH()}<div class="gauge" title="Füllstand ${b.fill}%"><i style="height:${b.fill}%"></i></div>${b.rating!=null?`<b class="score">${b.rating}</b>`:''}</div>
     <div class="cbody">${b.distillery?`<div class="dist">${esc(b.distillery)}</div>`:''}<h3>${esc(b.name)}</h3><p>${esc(meta(b))}</p>
     <div class="cfoot"><span>${b.fill} % voll</span><span title="Einstand">${money(b.price)}</span></div>
     ${b.market?.price!=null?`<div class="mk">Markt ab <b>${money(b.market.price)}</b>${d!=null&&d!==0?` <span class="${d>0?'up':'down'}">${d>0?'+':'−'}${money(Math.abs(d))}</span>`:''}</div>`:''}</div></article>`}).join('');
@@ -653,8 +666,12 @@ function openBottle(id,pre){
   <div><label>Notizen (für Freunde sichtbar, wenn du teilst)</label><textarea name="notes">${esc(b.notes)}</textarea></div>
   <div class="row sb"><div>${isNew?'':'<button class="btn danger" data-a="del">Löschen</button>'}</div><div class="row"><button class="btn ghost" data-close>Abbrechen</button><button class="btn pri" data-a="save">Speichern</button></div></div>`);
   const f=n=>d.querySelector(`[name=${n}]`);
-  let img=b.image,src0=b.image;
-  const pic=()=>{$('[data-pic]',d).innerHTML=img?`<img src="${esc(img)}" alt="">`:PH('Foto')};pic();
+  let img=b.image,src0=b.image,dirty=false;
+  const pic=(mark=true)=>{$('[data-pic]',d).innerHTML=img?`<img src="${esc(img)}" alt="">`:PH('Foto');if(mark)dirty=true};pic(false);
+  const guard=()=>!dirty||confirm('Änderungen verwerfen?');
+  d.addEventListener('input',e=>{if(e.target.name!=='q')dirty=true});
+  d.addEventListener('cancel',e=>{if(!guard())e.preventDefault()});
+  d.addEventListener('click',e=>{if(e.target.closest('[data-close]')&&!guard())e.stopPropagation()},true);
   if(b.market?.price!=null)f('mprice').value=b.market.price;
   f('fill').oninput=()=>$('[data-fv]',d).textContent=f('fill').value+' %';
   const pick=async it=>{
@@ -679,6 +696,7 @@ function openBottle(id,pre){
       const name=f('name').value.trim();if(!name){f('name').focus();return}
       const mp=num(f('mprice').value);
       Object.assign(b,{name,distillery:f('distillery').value.trim(),barcode:f('barcode').value.trim(),age:num(f('age').value),abv:num(f('abv').value),volume:num(f('volume').value),fill:Number(f('fill').value),price:num(f('price').value),rating:num(f('rating').value),notes:f('notes').value.trim(),image:img});
+      if(isNew){const dup=D.bottles.find(x=>(b.barcode&&x.barcode===b.barcode)||x.name.trim().toLowerCase()===name.toLowerCase());if(dup&&!confirm(`«${dup.name}» ist schon in deiner Sammlung. Trotzdem als weitere Flasche speichern?`))return}
       if(mp==null)b.market=null;else if(b.market?.price!==mp)b.market={price:mp,date:today(),source:'manuell'};
       put('bottles',b);d.close();
     }
@@ -709,7 +727,7 @@ function rTast(v){
   $('#tscan').onclick=async()=>{const c=await scanBarcode();if(c){$('#tq').value=c;go(c)}};
 }
 function tastingItem(t,rank){
-  return `<div class="item" data-id="${t.id}"><div class="rank">${rank}</div><div class="th">${t.whisky.image?`<img src="${esc(t.whisky.image)}" alt="">`:''}</div><div class="mid"><b>${esc(t.whisky.name)}</b><span class="muted sm">${esc([t.whisky.distillery,(t.tags||[]).join(', ')].filter(Boolean).join(' · '))}</span><div>${t.buy?`<span class="pill ${t.buy}">${{ja:'Kaufen',vielleicht:'Vielleicht',nein:'Nein'}[t.buy]}</span>`:''}${t.bottleId?'<span class="pill">in Sammlung</span>':''}</div></div><div class="bigscore${t.score==null?' none':''}">${t.score??'–'}</div></div>`;
+  return `<div class="item" tabindex="0" role="button" data-id="${t.id}"><div class="rank">${rank}</div><div class="th">${t.whisky.image?`<img src="${esc(t.whisky.image)}" alt="">`:''}</div><div class="mid"><b>${esc(t.whisky.name)}</b><span class="muted sm">${esc([t.whisky.distillery,(t.tags||[]).join(', ')].filter(Boolean).join(' · '))}</span><div>${t.buy?`<span class="pill ${t.buy}">${{ja:'Kaufen',vielleicht:'Vielleicht',nein:'Nein'}[t.buy]}</span>`:''}${t.bottleId?'<span class="pill">in Sammlung</span>':''}</div></div><div class="bigscore${t.score==null?' none':''}">${t.score??'–'}</div></div>`;
 }
 function bindSes(){
   $('#newses').onclick=()=>{
@@ -786,7 +804,7 @@ function rBuy(v){
   v.innerHTML=`<h2 class="ptitle">${all?'Alle Bewertungen':'Kaufliste'}</h2><div class="tools"><div class="seg" style="flex:1"><button class="btn ${all?'':'on'}" data-m="kauf">Kaufliste</button><button class="btn ${all?'on':''}" data-m="alle">Alle Bewertungen</button></div></div>
   ${list.length?`<div class="rows">${list.map((t,i)=>{
     const ses=D.sessions.find(s=>s.id===t.sessionId);
-    return `<div class="item" data-id="${t.id}"><div class="rank">${i+1}</div><div class="th">${t.whisky.image?`<img src="${esc(t.whisky.image)}" alt="">`:''}</div><div class="mid"><b>${esc(t.whisky.name)}</b><span class="muted sm">${esc([ses?.name,t.price!=null?'ab '+money(t.price):''].filter(Boolean).join(' · '))}</span><div>${t.buy?`<span class="pill ${t.buy}">${{ja:'Kaufen',vielleicht:'Vielleicht',nein:'Nein'}[t.buy]}</span>`:''}${t.bottleId?'<span class="pill">in Sammlung</span>':''}</div></div><div class="bigscore${t.score==null?' none':''}">${t.score??'–'}</div></div>`}).join('')}</div>`
+    return `<div class="item" tabindex="0" role="button" data-id="${t.id}"><div class="rank">${i+1}</div><div class="th">${t.whisky.image?`<img src="${esc(t.whisky.image)}" alt="">`:''}</div><div class="mid"><b>${esc(t.whisky.name)}</b><span class="muted sm">${esc([ses?.name,t.price!=null?'ab '+money(t.price):''].filter(Boolean).join(' · '))}</span><div>${t.buy?`<span class="pill ${t.buy}">${{ja:'Kaufen',vielleicht:'Vielleicht',nein:'Nein'}[t.buy]}</span>`:''}${t.bottleId?'<span class="pill">in Sammlung</span>':''}</div></div><div class="bigscore${t.score==null?' none':''}">${t.score??'–'}</div></div>`}).join('')}</div>`
   :`<div class="empty"><b>${all?'Noch keine Bewertungen':'Die Kaufliste ist leer'}</b>${all?'Bewerte Whiskys im Tab Degustation.':'Whiskys, bei denen du „Ja“ oder „Vielleicht“ wählst, landen hier – sortiert nach Note. Tippe einen Eintrag an, um den aktuellen Marktpreis zu prüfen.'}</div>`}`;
   $$('[data-m]',v).forEach(b=>b.onclick=()=>{UI.kaufMode=b.dataset.m;render()});
   $$('.item',v).forEach(it=>it.onclick=()=>openTasting(it.dataset.id));
@@ -885,7 +903,7 @@ function rAccount(v){
   <div class="box"><label style="margin:0">Währung</label><select id="cur">${['CHF','EUR','USD','GBP'].map(c=>`<option ${c===D.settings.currency?'selected':''}>${c}</option>`).join('')}</select></div>
   <div class="box"><label style="margin:0">Backup</label><p class="sm muted" style="margin:0">Deine Daten liegen in deinem Konto in der Cloud. Ein zusätzliches Backup als Datei ist trotzdem sinnvoll.</p>
     <div class="row wrap"><button class="btn pri" id="exp">Backup exportieren (JSON)</button><button class="btn" id="imp">Backup importieren</button><button class="btn" id="csv">Sammlung als CSV</button><input type="file" id="impf" accept="application/json" hidden></div></div>
-  <div class="box"><label style="margin:0">Quellen</label><p class="sm muted" style="margin:0">Produktdaten und Bilder: Open Food Facts (Community-Datenbank, nicht jede Flasche ist vorhanden). Preise: Open Prices (Community-Meldungen) und Vergleichslinks zu Preisportalen.</p></div>
+  <div class="box"><label style="margin:0">Quellen</label><p class="sm muted" style="margin:0">Produktdaten und Bilder: Open Food Facts, UPCitemdb und Wikidata (nicht jede Flasche ist vorhanden). Preise: Open Prices (Community-Meldungen) und Vergleichslinks zu Preisportalen.</p></div>
   <div class="box"><button class="btn danger" id="wipe">Alle meine Whisky-Daten löschen</button></div></div>`;
   $('#out').onclick=()=>signOut(auth);
   $('#cur').onchange=e=>{D.settings.currency=e.target.value;saveSettings();render()};
@@ -899,6 +917,7 @@ function rAccount(v){
 function dl(name,text,type){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
 
 /* ============ Start ============ */
+addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.target.matches?.('.card[tabindex],.item[tabindex]')){e.preventDefault();e.target.click()}});
 function render(){
   const v=$('#view');
   if(!ME){return renderAuth()}
