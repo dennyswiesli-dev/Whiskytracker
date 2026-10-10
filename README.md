@@ -62,7 +62,7 @@ Whisky Vault beantwortet das in Sekunden. Flasche scannen oder Namen eintippen, 
 - **Als App installierbar:** auf dem Handy «Zum Home-Bildschirm» wählen, und Whisky Vault startet wie eine App.
 - **Offline nutzbar:** Änderungen ohne Netz werden zwischengespeichert und später synchronisiert.
 - Dunkles Design im Fassholz-Look mit Kupferakzent.
-- **Änderungsprotokoll:** Nach einem Update zeigt die App einmal, was neu ist.
+- **Änderungsprotokoll:** Nach einem Update zeigt die App einmal, was neu ist. Die neueste Version steht oben, frühere Versionen lassen sich durchblättern.
 
 ## Unter der Haube
 

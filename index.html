@@ -78,6 +78,9 @@ main{max-width:1120px;margin:0 auto;padding:28px 24px 96px}
 .lr b{font:400 1.2rem var(--serif);color:var(--copper2)}
 .qr{background:#fff;padding:14px;width:min(100%,280px);margin:0 auto}
 .qr svg{width:100%;height:auto;display:block}
+.clogs{max-height:min(58vh,520px);overflow:auto;display:flex;flex-direction:column;gap:12px;padding-right:2px;overscroll-behavior:contain}
+.clogs>.box{flex:none}
+.clogs>.box.old{opacity:.72}
 .clog{margin:10px 0 0;padding-left:18px;display:flex;flex-direction:column;gap:6px;font-size:14px}
 .sub{font:400 11px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--mute);margin:28px 0 10px}
 .bars{display:flex;flex-direction:column}
@@ -824,8 +827,10 @@ function openBottle(id,pre,opts){
 }
 
 /* ============ Version und Änderungsprotokoll ============ */
-const APP_VERSION='1.7.0';
+const APP_VERSION='1.7.1';
 const CHANGELOG=[
+  {v:'1.7.1',d:'2026-10-10',t:[
+    'Änderungsprotokoll: Die neueste Version steht oben, frühere Versionen lassen sich darunter durchblättern.']},
   {v:'1.7.0',d:'2026-10-10',t:[
     'Liste scannen: Blatt einer Degustation fotografieren, die App liest die Whiskys und fügt sie in die Degustation ein.',
     'Degustation teilen: per QR-Code oder Link. Freunde sehen alle Whiskys, die Bewertungen bleiben bei jedem privat.',
@@ -856,16 +861,18 @@ const CHANGELOG=[
     'Konto mit E-Mail oder Google, Cloud-Sync, Sammlung, Degustationen, Kaufliste und Freunde.']}
 ];
 const verCmp=(a,b)=>{const x=a.split('.').map(Number),y=b.split('.').map(Number);for(let i=0;i<3;i++){if((x[i]||0)!==(y[i]||0))return(x[i]||0)-(y[i]||0)}return 0};
-function showChangelog(entries){
-  modal(`<div class="mhead"><h2>Neu in Whisky Vault</h2><button class="x" data-close aria-label="Schliessen">✕</button></div>${entries.map(e=>`<div class="box"><div class="row sb"><b style="font:400 1.2rem var(--serif)">Version ${esc(e.v)}</b>${e.d?`<span class="muted sm">${fmtDate(e.d)}</span>`:''}</div><ul class="clog">${e.t.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div>`).join('')}<div class="row sb"><span class="muted sm">Installiert: Version ${APP_VERSION}</span><button class="btn pri" data-close>Los geht’s</button></div>`);
+function showChangelog(seen){
+  const isNew=(e,i)=>seen?verCmp(e.v,seen)>0:i===0;
+  modal(`<div class="mhead"><h2>Neu in Whisky Vault</h2><button class="x" data-close aria-label="Schliessen">✕</button></div>
+  <div class="clogs">${CHANGELOG.map((e,i)=>`<div class="box${isNew(e,i)||e.v===APP_VERSION?'':' old'}"><div class="row sb"><b style="font:400 1.2rem var(--serif)">Version ${esc(e.v)}</b><span class="muted sm">${isNew(e,i)?'<span class="pill ja" style="margin:0">Neu</span>':e.v===APP_VERSION?'<span class="pill" style="margin:0">Aktuell</span>':''}${e.d?' '+esc(fmtDate(e.d)):''}</span></div><ul class="clog">${e.t.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div>`).join('')}</div>
+  <div class="row sb"><span class="muted sm">Installiert: Version ${APP_VERSION}</span><button class="btn pri" data-close>Los geht’s</button></div>`);
 }
 function maybeChangelog(){
   if(UI.clogShown)return;UI.clogShown=true;
   let seen='';try{seen=localStorage.getItem('wv-version')||''}catch{}
   if(seen===APP_VERSION)return;
-  const list=seen?CHANGELOG.filter(e=>verCmp(e.v,seen)>0):CHANGELOG.slice(0,1);
   try{localStorage.setItem('wv-version',APP_VERSION)}catch{}
-  if(list.length)showChangelog(list);
+  showChangelog(seen);
 }
 
 /* ============ Gemeinsame Degustation (QR-Code) ============ */
@@ -1299,7 +1306,7 @@ function rAccount(v){
   <div class="box"><label style="margin:0">Quellen</label><p class="sm muted" style="margin:0">Produktdaten und Bilder: Open Food Facts, UPCitemdb und Wikidata (nicht jede Flasche ist vorhanden). Preise: Open Prices (Community-Meldungen) und Vergleichslinks zu Preisportalen.</p></div>
   <div class="box"><button class="btn danger" id="wipe">Alle meine Whisky-Daten löschen</button></div></div>`;
   $('#out').onclick=()=>signOut(auth);
-  $('#clog').onclick=()=>showChangelog(CHANGELOG);
+  $('#clog').onclick=()=>showChangelog(APP_VERSION);
   $('#cur').onchange=e=>{D.settings.currency=e.target.value;saveSettings();render()};
   $('#exp').onclick=()=>dl(`whisky-vault-${today()}.json`,JSON.stringify({bottles:D.bottles,sessions:D.sessions,tastings:D.tastings,wishlist:D.wishlist,settings:D.settings}),'application/json');
   $('#imp').onclick=()=>$('#impf').click();
