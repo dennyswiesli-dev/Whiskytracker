@@ -32,6 +32,7 @@ Whisky Vault beantwortet das in Sekunden. Flasche scannen oder Namen eintippen, 
 ### Schnell erfassen
 - **Barcode scannen** mit der Rückkamera des Handys (bei mehreren Kameras wählbar), oder ein Foto vom Strichcode machen.
 - **Online-Abgleich** nach Name oder Barcode über mehrere Datenbanken. Treffer übernimmt die App samt Bild, Marke, Alkoholgehalt und Inhalt.
+- **Gemeinsame Whisky-Datenbank:** Wer mitmacht, teilt Name, Marke, Barcode, Alkoholgehalt, Inhalt und ein kleines Bild seiner Flaschen mit Barcode. Alle finden diese Flaschen danach beim Scannen und Suchen zuerst. Preise, Noten und Notizen bleiben privat, das Mitmachen ist freiwillig.
 - Schreibweisen wie «Glenmoray» und «Glen Moray» findet die Suche beide.
 - **Bild ausrichten:** verschieben und zoomen, bis das Etikett perfekt im Rahmen sitzt.
 
@@ -45,7 +46,7 @@ Whisky Vault beantwortet das in Sekunden. Flasche scannen oder Namen eintippen, 
 
 ### Kaufliste und Preise
 - Eigene **Wunschliste** mit Zielpreis, zuletzt gesehenem Preis und Priorität. Die App zeigt an, wenn der Zielpreis erreicht ist, und übernimmt den Wunsch mit einem Tipp in die Sammlung.
-- Auch die Flaschen von Freunden lassen sich mit einem Tipp auf die Wunschliste setzen.
+- Flaschen von Freunden lassen sich mit einem Tipp in die eigene Sammlung oder auf die Wunschliste übernehmen.
 - Whiskys, bei denen du am Degustationsabend «Ja» oder «Vielleicht» wählst, landen automatisch auf der Kaufliste, sortiert nach deiner Note.
 - **Preisvergleich** mit einem Tipp: Google Shopping, toppreise.ch, idealo.de und Whiskybase, mit Marke und Name schon eingesetzt.
 - Community-Preise (Open Prices) per Barcode, den besten Marktpreis trägst du ein.
