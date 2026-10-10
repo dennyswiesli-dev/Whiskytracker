@@ -198,6 +198,7 @@ label{display:block;font:400 11px var(--mono);letter-spacing:.1em;text-transform
 .note{border:1px solid var(--line);border-radius:var(--r);padding:10px 12px;font-size:14px}
 .note.bad{border-color:var(--bad)}
 .note.bad b{color:var(--bad)}
+.mlist{max-height:22vh;overflow:auto;margin:6px 0}.mrow{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 8px;border-bottom:1px solid #3a3a3a;font-size:.9rem}
 .reader.live{position:relative;min-height:0}
 .reader.live video{width:100%;display:block;max-height:46vh;object-fit:contain;background:#000}
 .reader.live .aim{position:absolute;left:5%;right:5%;top:20%;bottom:20%;border:2px solid var(--copper);box-shadow:0 0 0 999px rgba(0,0,0,.38);pointer-events:none}
@@ -583,23 +584,24 @@ const loadH5=()=>h5??=new Promise((res,rej)=>{const s=document.createElement('sc
 /* Eigener Kamera-Scanner: liest die Mitte des Kamerabilds in voller Auflösung.
    (Die Bibliothek html5-qrcode verkleinert den Ausschnitt auf Anzeigegrösse, dabei werden Strichcodes unlesbar.) */
 function scanLive(opts={}){
-  const qr=!!opts.qr,hint=qr?'Halte den QR-Code ruhig in den Rahmen.':'Halte den Strichcode (EAN) ruhig und gut beleuchtet in den Rahmen.';
+  const qr=!!opts.qr,multi=!!opts.multi,hint=qr?'Halte den QR-Code ruhig in den Rahmen.':multi?'Halte nacheinander die Strichcodes in den Rahmen. Jede Flasche wird automatisch erfasst.':'Halte den Strichcode (EAN) ruhig und gut beleuchtet in den Rahmen.';
   return new Promise(resolve=>{
-    const d=modal(`<div class="mhead"><h2>${qr?'QR-Code scannen':'Barcode scannen'}</h2><button class="x" data-close aria-label="Schliessen">✕</button></div><div id="reader" class="reader live"><video id="mvideo" playsinline muted autoplay></video><div class="aim"></div></div><p class="muted sm" id="rmsg">Scanner wird vorbereitet …</p><div id="mcamrow" hidden><label>Kamera</label><select id="mcam"></select></div><div class="row" id="mext" hidden><button class="btn" id="mtorch" hidden>Licht an</button><input type="range" id="mzoom" hidden aria-label="Zoom" style="flex:1"></div><div class="row"><button class="btn" id="mphoto">${qr?'Foto vom QR-Code':'Foto vom Barcode'}</button><input type="file" accept="image/*" capture="environment" hidden id="mfile"></div><div class="row"><input id="mcode" placeholder="${qr?'oder Link bzw. Code einfügen':'oder Nummer eintippen'}" ${qr?'':'inputmode="numeric"'}><button class="btn pri" id="mok">OK</button></div>`);
+    const d=modal(`<div class="mhead"><h2>${qr?'QR-Code scannen':multi?'Mehrere Flaschen scannen':'Barcode scannen'}</h2><button class="x" data-close aria-label="Schliessen">✕</button></div><div id="reader" class="reader live"><video id="mvideo" playsinline muted autoplay></video><div class="aim"></div></div><p class="muted sm" id="rmsg">Scanner wird vorbereitet …</p>${multi?'<div id="mlist" class="mlist"></div>':''}<div id="mcamrow" hidden><label>Kamera</label><select id="mcam"></select></div><div class="row" id="mext" hidden><button class="btn" id="mtorch" hidden>Licht an</button><input type="range" id="mzoom" hidden aria-label="Zoom" style="flex:1"></div><div class="row"><button class="btn" id="mphoto">${qr?'Foto vom QR-Code':'Foto vom Barcode'}</button><input type="file" accept="image/*" capture="environment" hidden id="mfile"></div><div class="row"><input id="mcode" placeholder="${qr?'oder Link bzw. Code einfügen':'oder Nummer eintippen'}" ${qr?'':'inputmode="numeric"'}><button class="btn pri" id="mok">OK</button></div>`);
     const msg=t=>{$('#rmsg',d).textContent=t};
     let done=false,stream=null,timer=0,det=null;
     const stopStream=()=>{clearTimeout(timer);try{stream?.getTracks().forEach(t=>t.stop())}catch{}stream=null};
     const finish=v=>{if(done)return;done=true;stopStream();d.close();resolve(v)};
     d.addEventListener('close',()=>finish(null));
-    $('#mok',d).onclick=()=>{const raw=$('#mcode',d).value;const v=qr?raw.trim():raw.replace(/\D/g,'');if(v)finish(v)};
+    $('#mok',d).onclick=()=>{const raw=$('#mcode',d).value;const v=qr?raw.trim():raw.replace(/\D/g,'');if(!v)return;if(multi){$('#mcode',d).value='';seen.set(canonGtin(v),Date.now());opts.onCode(v)}else finish(v)};
     $('#mcode',d).addEventListener('keydown',e=>{if(e.key==='Enter')$('#mok',d).click()});
-    let last='',reads=0,bad=0;
+    let last='',reads=0,bad=0;const seen=new Map();
     const onRead=t=>{
       const c=String(t).trim();
       if(qr){finish(c);return}
+      if(multi&&Date.now()-(seen.get(canonGtin(c))||0)<5000){if(validGtin(c))seen.set(canonGtin(c),Date.now());return}
       if(!validGtin(c)){if(++bad%6===1)msg('Noch nicht sauber gelesen. Ruhig halten, etwas Abstand und gutes Licht.');return}
       if(c===last)reads++;else{last=c;reads=1}
-      if(reads>=2)finish(c);
+      if(reads>=2){if(multi){seen.set(canonGtin(c),Date.now());last='';reads=0;try{navigator.vibrate?.(60)}catch{}opts.onCode(c)}else finish(c)}
     };
     const video=$('#mvideo',d),cv=document.createElement('canvas'),cx=cv.getContext('2d',{willReadFrequently:true});
     const area=b=>{const r=b.boundingBox||{};return(r.width||0)*(r.height||0)};
@@ -645,7 +647,7 @@ function scanLive(opts={}){
         c.width=Math.round(bmp.width*k);c.height=Math.round(bmp.height*k);c.getContext('2d').drawImage(bmp,0,0,c.width,c.height);
         const res=(await det.detect(c)).filter(b=>b.rawValue).sort((a,b)=>area(b)-area(a));
         const r=res[0]&&String(res[0].rawValue).trim();
-        if(r&&(qr||validGtin(r)))finish(r);
+        if(r&&(qr||validGtin(r))){if(multi){seen.set(canonGtin(r),Date.now());opts.onCode(r);msg(hint)}else finish(r)}
         else msg(r?'Der Code im Foto wurde nicht sauber gelesen. Nochmals fotografieren oder Nummer eintippen.':'Im Foto wurde kein Code erkannt. Näher ran, gerade fotografieren oder Nummer eintippen.');
       }catch{msg('Das Foto konnte nicht gelesen werden.')}
     };
@@ -658,6 +660,32 @@ function scanLive(opts={}){
       await startCam(prefGet());
     })().catch(()=>{if(!done)msg('Kamera nicht verfügbar. Erlaube den Kamerazugriff, nutze „Foto“ oder tippe die Nummer ein.')});
   });
+}
+const ownedBottle=code=>{const k=canonGtin(code);return k&&D.bottles.find(x=>x.barcode&&canonGtin(x.barcode)===k)};
+/* Mehrere Flaschen hintereinander scannen: jede erkannte Flasche wird gleich in die Sammlung gelegt */
+async function multiScan(){
+  let added=0,manual=null;
+  const line=h=>{const l=$('#mlist');if(!l)return null;const r=document.createElement('div');r.className='mrow';r.innerHTML=h;l.prepend(r);return r};
+  const onCode=async c=>{
+    const own=ownedBottle(c);
+    if(own){line(`<span>⚠️ <b>${esc(own.name)}</b> hast du schon</span>`);return}
+    const r=line(`<span class="muted">${esc(c)} wird gesucht …</span>`);
+    try{
+      const it=(await codeLookup(c))[0];
+      if(!it){r&&(r.innerHTML=`<span>❓ ${esc(c)} unbekannt</span><button class="btn" data-fill="${esc(c)}">Von Hand</button>`);return}
+      if(ownedBottle(c)){r&&(r.innerHTML=`<span>⚠️ <b>${esc(it.name)}</b> hast du schon</span>`);return}
+      const b={id:uid(),name:it.name,distillery:it.distillery||'',age:it.age??null,abv:it.abv??null,volume:it.volume||700,barcode:canonGtin(c),image:'',fill:100,price:null,rating:null,notes:'',market:null,region:it.region||'',cask:it.cask||'',bottler:it.bottler||'',bought:'',shop:'',opened:false,added:Date.now()};
+      put('bottles',b);added++;
+      r&&(r.innerHTML=`<span>✅ <b>${esc(it.name)}</b></span>`);
+      cacheImage(it.image).then(im=>{if(im){const cur=D.bottles.find(x=>x.id===b.id);if(cur)put('bottles',{...cur,image:im})}}).catch(()=>{});
+      contribute(b);
+    }catch(e){r&&(r.innerHTML=`<span>⚠️ ${esc(c)}: Suche nicht erreichbar</span>`)}
+  };
+  const p=scanLive({multi:true,onCode});
+  $('#mlist')?.addEventListener('click',e=>{const b=e.target.closest('[data-fill]');if(!b)return;manual=b.dataset.fill;b.closest('dialog').close()});
+  await p;
+  if(added)toast(added===1?'1 Flasche hinzugefügt.':added+' Flaschen hinzugefügt.');
+  if(manual)openBottle(null,{barcode:manual});
 }
 async function scanBarcode(opts={}){
   if(navigator.mediaDevices?.getUserMedia)return scanLive(opts);
@@ -887,7 +915,7 @@ function rColl(v){
     <div class="stat"><span>Ø Note</span><b>${avg??'–'}</b></div></section>
   <div class="tools"><input id="q" type="search" placeholder="Sammlung durchsuchen" value="${esc(UI.q)}">
     <select id="sort"><option value="name">Name A–Z</option><option value="dist">Brennerei A–Z</option><option value="rating">Beste Note</option><option value="price">Teuerste</option><option value="fill">Fast leer zuerst</option><option value="new">Neueste</option></select>
-    <button class="btn" id="lay" aria-label="Ansicht wechseln"></button><button class="btn pri" id="add">+ Flasche erfassen</button></div>
+    <button class="btn" id="lay" aria-label="Ansicht wechseln"></button><button class="btn" id="madd" title="Mehrere Flaschen hintereinander scannen">Mehrere scannen</button><button class="btn pri" id="add">+ Flasche erfassen</button></div>
   <div class="chips" id="flt" style="margin-bottom:14px"></div><div id="grid"></div>`;
   $('#sort').value=UI.sort;
   $('#q').oninput=e=>{UI.q=e.target.value;fillGrid()};
@@ -896,6 +924,7 @@ function rColl(v){
   const layBtn=()=>{$('#lay').textContent=UI.layout==='liste'?'Karten':'Liste'};layBtn();
   $('#lay').onclick=()=>{UI.layout=UI.layout==='liste'?'karten':'liste';try{localStorage.setItem('wv-layout',UI.layout)}catch{}layBtn();fillGrid()};
   $('#add').onclick=()=>openBottle();
+  $('#madd').onclick=()=>multiScan();
   $('#flt').onclick=e=>{const c=e.target.closest('[data-f]');if(c){UI.filter=c.dataset.f;fillGrid()}};
   fillGrid();
 }
@@ -966,7 +995,7 @@ function openBottle(id,pre,opts){
   d.addEventListener('click',async e=>{
     const a=e.target.closest('[data-a]')?.dataset.a;if(!a)return;
     if(a==='search')search();
-    if(a==='scan'){const c=await scanBarcode();if(c){f('q').value=c;search()}}
+    if(a==='scan'){const c=await scanBarcode();if(c){const own=isNew&&ownedBottle(c);if(own&&confirm(`«${own.name}» ist schon in deiner Sammlung. Diese Flasche öffnen?\n(Abbrechen = trotzdem als neue Flasche erfassen)`)){d.close();openBottle(own.id);return}f('q').value=c;search()}}
     if(a==='photo')$('[data-file]',d).click();
     if(a==='rmimg'){img='';src0='';pic()}
     if(a==='crop'&&img){const o=await editImage(src0||img);if(o){img=o;pic()}}
@@ -984,8 +1013,12 @@ function openBottle(id,pre,opts){
 }
 
 /* ============ Version und Änderungsprotokoll ============ */
-const APP_VERSION='1.10.0';
+const APP_VERSION='1.11.0';
 const CHANGELOG=[
+  {v:'1.11.0',d:'2026-10-10',t:[
+    'Neu: «Mehrere scannen». Die Kamera bleibt offen, du hältst eine Flasche nach der anderen davor, und jede wird automatisch in deine Sammlung gelegt.',
+    'Duplikat-Warnung beim Scannen: Besitzt du die Flasche schon, wirst du gefragt, ob du die vorhandene öffnen willst.',
+  ]},
   {v:'1.10.0',d:'2026-10-10',t:[
     'Barcode-Scanner: viel genauere Erkennung, auch auf dem iPhone (neue Erkennungs-Engine). Fehlerhafte Lesungen werden aussortiert, ein Code gilt erst nach zwei gleichen Treffern. Licht und Zoom, wo das Gerät es kann.',
     'Suche: findet Barcodes auch in abweichender Schreibweise (UPC/EAN), ignoriert Zusätze wie «Jahre» oder «40 %» und zeigt die besten Treffer zuerst.',

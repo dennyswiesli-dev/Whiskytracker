@@ -30,7 +30,7 @@ Whisky Vault beantwortet das in Sekunden. Flasche scannen oder Namen eintippen, 
 - **Statistik:** Inhalt und Restmenge, Top-Brennereien, Regionen, Geschmacksprofil, Ausgaben pro Jahr, beste Bewertungen sowie grösster Wertzuwachs und -verlust.
 
 ### Schnell erfassen
-- **Barcode scannen** mit der Rückkamera des Handys (bei mehreren Kameras wählbar, mit Licht und Zoom wo möglich) oder per Foto vom Strichcode. Eine genaue Erkennungs-Engine und die Prüfung der Prüfziffer sorgen für verlässliche Treffer, auch auf dem iPhone.
+- **Barcode scannen** mit der Rückkamera des Handys (bei mehreren Kameras wählbar, mit Licht und Zoom wo möglich) oder per Foto vom Strichcode. Eine genaue Erkennungs-Engine und die Prüfung der Prüfziffer sorgen für verlässliche Treffer, auch auf dem iPhone. «Mehrere scannen» erfasst ganze Regale in einem Rutsch, und beim Scannen warnt die App, wenn du eine Flasche schon besitzt.
 - **Online-Abgleich** nach Name oder Barcode über mehrere Datenbanken. Treffer übernimmt die App samt Bild, Marke, Alkoholgehalt und Inhalt.
 - **Gemeinsame Whisky-Datenbank:** Wer mitmacht, teilt Name, Marke, Barcode, Alkoholgehalt, Inhalt und ein kleines Bild seiner Flaschen mit Barcode. Alle finden diese Flaschen danach beim Scannen und Suchen zuerst. Preise, Noten und Notizen bleiben privat, das Mitmachen ist freiwillig.
 - Schreibweisen wie «Glenmoray» und «Glen Moray» findet die Suche beide.
