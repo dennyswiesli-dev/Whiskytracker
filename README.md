@@ -40,6 +40,8 @@ Whisky Vault beantwortet das in Sekunden. Flasche scannen oder Namen eintippen, 
 - Geschmacksrichtungen per Tipp wählen: rauchig, torfig, fruchtig, süss, würzig, Sherry und mehr.
 - Du hältst fest, ob du ihn kaufen würdest, und siehst am Ende, was dir geschmeckt hat.
 - Bewertete Whiskys übernimmst du mit einem Tipp in die Sammlung.
+- **Liste scannen:** Das Blatt mit den Whiskys des Abends fotografieren, die App liest die Namen, du prüfst die Liste und fügst alle auf einmal ein, auf Wunsch mit Bild und Daten aus dem Netz.
+- **Degustation teilen:** Einer erfasst alle Whiskys und teilt die Degustation per **QR-Code** oder Link. Die anderen treten per Scan bei und sehen alle Whiskys, neue kommen automatisch dazu. Bewertungen bleiben bei jedem privat.
 
 ### Kaufliste und Preise
 - Eigene **Wunschliste** mit Zielpreis, zuletzt gesehenem Preis und Priorität. Die App zeigt an, wenn der Zielpreis erreicht ist, und übernimmt den Wunsch mit einem Tipp in die Sammlung.
@@ -60,6 +62,7 @@ Whisky Vault beantwortet das in Sekunden. Flasche scannen oder Namen eintippen, 
 - **Als App installierbar:** auf dem Handy «Zum Home-Bildschirm» wählen, und Whisky Vault startet wie eine App.
 - **Offline nutzbar:** Änderungen ohne Netz werden zwischengespeichert und später synchronisiert.
 - Dunkles Design im Fassholz-Look mit Kupferakzent.
+- **Änderungsprotokoll:** Nach einem Update zeigt die App einmal, was neu ist.
 
 ## Unter der Haube
 

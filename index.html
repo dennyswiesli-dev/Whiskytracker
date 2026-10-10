@@ -76,6 +76,9 @@ main{max-width:1120px;margin:0 auto;padding:28px 24px 96px}
 .lmain span{font-size:13px;color:var(--mute);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .lr{display:flex;flex-direction:column;align-items:flex-end;gap:2px;font:400 12px var(--mono);color:var(--mute);white-space:nowrap}
 .lr b{font:400 1.2rem var(--serif);color:var(--copper2)}
+.qr{background:#fff;padding:14px;width:min(100%,280px);margin:0 auto}
+.qr svg{width:100%;height:auto;display:block}
+.clog{margin:10px 0 0;padding-left:18px;display:flex;flex-direction:column;gap:6px;font-size:14px}
 .sub{font:400 11px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--mute);margin:28px 0 10px}
 .bars{display:flex;flex-direction:column}
 .bar{display:grid;grid-template-columns:minmax(84px,34%) 1fr auto;gap:12px;align-items:center;padding:5px 0}
@@ -293,10 +296,16 @@ function put(kind,o){
   upsert(kind,o);const u=ME.uid;
   setDoc(doc(db,'users',u,kind,o.id),o).catch(fail);
   if(kind==='bottles')setDoc(doc(db,'profiles',u,'shared',o.id),PUB(o)).catch(fail);
+  if(kind==='tastings'){const hs=hostSession(o.sessionId);if(hs)setDoc(doc(db,'groups',hs.groupId,'whiskies',o.id),GW(o)).catch(failG)}
   sched();
 }
 function del(kind,id){
+  const old=kind==='tastings'?D.tastings.find(x=>x.id===id):null;
   D[kind]=D[kind].filter(x=>x.id!==id);const u=ME.uid;
+  if(old){
+    const hs=hostSession(old.sessionId);if(hs)deleteDoc(doc(db,'groups',hs.groupId,'whiskies',id)).catch(failG);
+    const sj=D.sessions.find(x=>x.id===old.sessionId);if(sj?.groupId&&!sj.host&&old.fromGroup)put('sessions',{...sj,skip:[...(sj.skip||[]),id]});
+  }
   deleteDoc(doc(db,'users',u,kind,id)).catch(fail);
   if(kind==='bottles')deleteDoc(doc(db,'profiles',u,'shared',id)).catch(fail);
   sched();
@@ -334,8 +343,8 @@ function startListeners(){
   L(doc(db,'profiles',u),s=>{PROFILE=s.data()||null;sched()});
   L(doc(db,'users',u),s=>{D.settings={currency:'CHF',...(s.data()?.settings||{})};sched()});
   L(collection(db,'users',u,'bottles'),s=>{D.bottles=s.docs.map(d=>d.data());UI.loading=false;sched()});
-  L(collection(db,'users',u,'sessions'),s=>{D.sessions=s.docs.map(d=>d.data());sched()});
-  L(collection(db,'users',u,'tastings'),s=>{D.tastings=s.docs.map(d=>d.data());sched()});
+  L(collection(db,'users',u,'sessions'),s=>{D.sessions=s.docs.map(d=>d.data());LOADED.s=true;watchGroups();sched()});
+  L(collection(db,'users',u,'tastings'),s=>{D.tastings=s.docs.map(d=>d.data());LOADED.t=true;sched()});
   L(collection(db,'users',u,'wishlist'),s=>{D.wishlist=s.docs.map(d=>d.data());sched()});
   L(query(collection(db,'friends'),where('members','array-contains',u)),async s=>{
     FR.friends=s.docs.map(d=>({pid:d.id,id:d.data().members.find(m=>m!==u)}));
@@ -345,7 +354,7 @@ function startListeners(){
   L(query(collection(db,'requests'),where('to','==',u)),s=>{FR.incoming=s.docs.map(d=>({id:d.id,...d.data()}));sched()});
   L(query(collection(db,'requests'),where('from','==',u)),s=>{FR.outgoing=s.docs.map(d=>({id:d.id,...d.data()}));sched()});
 }
-function stopListeners(){unsubs.forEach(f=>f());unsubs=[]}
+function stopListeners(){unsubs.forEach(f=>f());unsubs=[];stopGroupWatch()}
 
 /* ============ Alte lokale Daten (v1) ============ */
 const LocalDB={open(){return new Promise((res,rej)=>{const r=indexedDB.open('whiskyvault',1);r.onupgradeneeded=()=>r.result.createObjectStore('kv');r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})},
@@ -520,16 +529,17 @@ function modal(html){
 }
 let h5;
 const loadH5=()=>h5??=new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js';s.onload=res;s.onerror=()=>{h5=null;rej(new Error('Scanner konnte nicht geladen werden'))};document.head.appendChild(s)});
-async function scanBarcode(){
+async function scanBarcode(opts={}){
+  const qr=!!opts.qr,hint=qr?'Halte den QR-Code ruhig in den Rahmen.':'Halte den Strichcode (EAN) ruhig und gut beleuchtet in den Rahmen.';
   try{await loadH5()}catch(e){alert(e.message);return null}
   return new Promise(resolve=>{
-    const d=modal(`<div class="mhead"><h2>Barcode scannen</h2><button class="x" data-close aria-label="Schliessen">✕</button></div><div id="reader" class="reader"></div><p class="muted sm" id="rmsg">Halte den Strichcode (EAN) ruhig und gut beleuchtet in den Rahmen.</p><div id="mcamrow" hidden><label>Kamera</label><select id="mcam"></select></div><div class="row"><button class="btn" id="mphoto">Foto vom Barcode</button><input type="file" accept="image/*" capture="environment" hidden id="mfile"></div><div class="row"><input id="mcode" placeholder="oder Nummer eintippen" inputmode="numeric"><button class="btn pri" id="mok">OK</button></div>`);
+    const d=modal(`<div class="mhead"><h2>${qr?'QR-Code scannen':'Barcode scannen'}</h2><button class="x" data-close aria-label="Schliessen">✕</button></div><div id="reader" class="reader"></div><p class="muted sm" id="rmsg">${hint}</p><div id="mcamrow" hidden><label>Kamera</label><select id="mcam"></select></div><div class="row"><button class="btn" id="mphoto">${qr?'Foto vom QR-Code':'Foto vom Barcode'}</button><input type="file" accept="image/*" capture="environment" hidden id="mfile"></div><div class="row"><input id="mcode" placeholder="${qr?'oder Link bzw. Code einfügen':'oder Nummer eintippen'}" ${qr?'':'inputmode="numeric"'}><button class="btn pri" id="mok">OK</button></div>`);
     let q,done=false;
     const finish=async v=>{if(done)return;done=true;try{await q?.stop()}catch{}try{q?.clear()}catch{}d.close();resolve(v)};
     d.addEventListener('close',()=>finish(null));
-    $('#mok',d).onclick=()=>{const v=$('#mcode',d).value.replace(/\D/g,'');if(v)finish(v)};
+    $('#mok',d).onclick=()=>{const raw=$('#mcode',d).value;const v=qr?raw.trim():raw.replace(/\D/g,'');if(v)finish(v)};
     $('#mcode',d).addEventListener('keydown',e=>{if(e.key==='Enter')$('#mok',d).click()});
-    const fmts=[Html5QrcodeSupportedFormats.EAN_13,Html5QrcodeSupportedFormats.EAN_8,Html5QrcodeSupportedFormats.UPC_A,Html5QrcodeSupportedFormats.UPC_E];
+    const fmts=qr?[Html5QrcodeSupportedFormats.QR_CODE]:[Html5QrcodeSupportedFormats.EAN_13,Html5QrcodeSupportedFormats.EAN_8,Html5QrcodeSupportedFormats.UPC_A,Html5QrcodeSupportedFormats.UPC_E];
     q=new Html5Qrcode('reader',{formatsToSupport:fmts,useBarCodeDetectorIfSupported:true,experimentalFeatures:{useBarCodeDetectorIfSupported:true},verbose:false});
     $('#mphoto',d).onclick=()=>$('#mfile',d).click();
     $('#mfile',d).onchange=async e=>{
@@ -567,7 +577,7 @@ async function scanBarcode(){
     sel.onchange=async()=>{
       prefSet(sel.value);$('#rmsg',d).textContent='Kamera wird gewechselt …';
       try{await q.stop()}catch{}
-      try{await startCam(sel.value);$('#rmsg',d).textContent='Halte den Strichcode (EAN) ruhig und gut beleuchtet in den Rahmen.'}
+      try{await startCam(sel.value);$('#rmsg',d).textContent=hint}
       catch{$('#rmsg',d).innerHTML='<span class="err">Diese Kamera lässt sich nicht starten. Wähle eine andere.</span>'}
     };
     startCam(prefGet()).then(listCams).catch(()=>{$('#reader',d).innerHTML='<p class="err" style="padding:12px">Kamera nicht verfügbar. Erlaube den Kamerazugriff, nutze „Foto vom Barcode“ oder tippe die Nummer ein.</p>'});
@@ -813,13 +823,233 @@ function openBottle(id,pre,opts){
   $('[data-file]',d).onchange=async e=>{const file=e.target.files[0];e.target.value='';if(!file)return;try{src0=await fileToDataURL(file,1000);img=(await editImage(src0))||await fileToDataURL(file);pic()}catch(err){alert(err.message)}};
 }
 
+/* ============ Version und Änderungsprotokoll ============ */
+const APP_VERSION='1.7.0';
+const CHANGELOG=[
+  {v:'1.7.0',d:'2026-10-10',t:[
+    'Liste scannen: Blatt einer Degustation fotografieren, die App liest die Whiskys und fügt sie in die Degustation ein.',
+    'Degustation teilen: per QR-Code oder Link. Freunde sehen alle Whiskys, die Bewertungen bleiben bei jedem privat.',
+    'Beitreten: QR-Code in der App scannen oder mit der Handykamera öffnen.',
+    'Änderungsprotokoll: Nach einem Update zeigt die App, was neu ist.']},
+  {v:'1.6.0',t:[
+    'Barcode-Scanner nutzt die Rückkamera und bietet bei mehreren Kameras eine Auswahl.',
+    'Sammlung als kompakte Liste ohne Bilder anzeigen.']},
+  {v:'1.5.0',t:[
+    'Eigene Wunschliste mit Zielpreis und Priorität.',
+    'Statistik: Top-Brennereien, Regionen, Geschmacksprofil, Ausgaben pro Jahr und mehr.',
+    'Neue Felder: Region, Fassart, Abfüller, Kaufdatum, Kaufort.',
+    'Status geöffnet oder ungeöffnet.']},
+  {v:'1.4.0',t:[
+    'Filter in der Sammlung (fast leer, ohne Note, ohne Marktpreis).',
+    'Warnung bei doppelten Flaschen und Rückfrage bei ungespeicherten Änderungen.',
+    'Bedienung mit der Tastatur.']},
+  {v:'1.3.0',t:[
+    'Neues Design im Fassholz-Look.',
+    'Logo und App-Icons, Installation auf dem Home-Bildschirm, Offline-Betrieb.']},
+  {v:'1.2.0',t:[
+    'Bild ausrichten: verschieben und zoomen, damit das Etikett im Rahmen sitzt.',
+    'Preisvergleich sucht mit Marke und Name.']},
+  {v:'1.1.0',t:[
+    'Bessere Online-Suche mit mehreren Quellen und erkannten Schreibweisen.',
+    'Barcode-Scanner mit Foto-Funktion.']},
+  {v:'1.0.0',t:[
+    'Konto mit E-Mail oder Google, Cloud-Sync, Sammlung, Degustationen, Kaufliste und Freunde.']}
+];
+const verCmp=(a,b)=>{const x=a.split('.').map(Number),y=b.split('.').map(Number);for(let i=0;i<3;i++){if((x[i]||0)!==(y[i]||0))return(x[i]||0)-(y[i]||0)}return 0};
+function showChangelog(entries){
+  modal(`<div class="mhead"><h2>Neu in Whisky Vault</h2><button class="x" data-close aria-label="Schliessen">✕</button></div>${entries.map(e=>`<div class="box"><div class="row sb"><b style="font:400 1.2rem var(--serif)">Version ${esc(e.v)}</b>${e.d?`<span class="muted sm">${fmtDate(e.d)}</span>`:''}</div><ul class="clog">${e.t.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div>`).join('')}<div class="row sb"><span class="muted sm">Installiert: Version ${APP_VERSION}</span><button class="btn pri" data-close>Los geht’s</button></div>`);
+}
+function maybeChangelog(){
+  if(UI.clogShown)return;UI.clogShown=true;
+  let seen='';try{seen=localStorage.getItem('wv-version')||''}catch{}
+  if(seen===APP_VERSION)return;
+  const list=seen?CHANGELOG.filter(e=>verCmp(e.v,seen)>0):CHANGELOG.slice(0,1);
+  try{localStorage.setItem('wv-version',APP_VERSION)}catch{}
+  if(list.length)showChangelog(list);
+}
+
+/* ============ Gemeinsame Degustation (QR-Code) ============ */
+const failG=e=>{console.error(e);toast(e.code==='permission-denied'?'Gemeinsame Degustation: Die Datenbankregeln dafür fehlen noch.':'Teilen fehlgeschlagen: '+(e.code||e.message))};
+const GW=t=>({name:t.whisky.name,distillery:t.whisky.distillery||'',barcode:t.whisky.barcode||'',abv:t.whisky.abv??null,volume:t.whisky.volume??null,order:t.created||0});
+const hostSession=sid=>D.sessions.find(s=>s.id===sid&&s.groupId&&s.host);
+function genGid(){const A='ABCDEFGHJKMNPQRSTUVWXYZ23456789';return[...crypto.getRandomValues(new Uint8Array(20))].map(x=>A[x%A.length]).join('')}
+const groupLink=gid=>location.origin+location.pathname+'?join='+gid;
+const parseJoin=t=>{t=String(t||'').trim();try{const j=new URL(t).searchParams.get('join');if(j&&/^[A-Za-z0-9]{12,40}$/.test(j))return j}catch{}return /^[A-Za-z0-9]{12,40}$/.test(t)?t:''};
+let qrP;const loadQR=()=>qrP??=new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js';s.onload=res;s.onerror=()=>{qrP=null;rej(new Error('QR-Code konnte nicht erstellt werden'))};document.head.appendChild(s)});
+let GSUB=new Map();const LOADED={s:false,t:false};
+function stopGroupWatch(){GSUB.forEach(u=>u());GSUB=new Map();LOADED.s=false;LOADED.t=false}
+function watchGroups(){
+  const want=new Set(D.sessions.filter(s=>s.groupId&&!s.host).map(s=>s.groupId));
+  for(const [gid,un] of GSUB)if(!want.has(gid)){un();GSUB.delete(gid)}
+  for(const gid of want)if(!GSUB.has(gid))GSUB.set(gid,onSnapshot(collection(db,'groups',gid,'whiskies'),snap=>applyGroup(gid,snap.docs.map(d=>({id:d.id,...d.data()}))),e=>console.warn('Gruppe nicht lesbar',e)));
+}
+function applyGroup(gid,list){
+  if(!ME||!GSUB.has(gid))return;
+  if(!LOADED.t){setTimeout(()=>applyGroup(gid,list),400);return}
+  const s=D.sessions.find(x=>x.groupId===gid&&!x.host);if(!s)return;
+  list.forEach(w=>{
+    if((s.skip||[]).includes(w.id)||D.tastings.some(t=>t.id===w.id))return;
+    put('tastings',{id:w.id,sessionId:s.id,bottleId:null,whisky:{name:w.name||'',distillery:w.distillery||'',barcode:w.barcode||'',image:'',abv:w.abv??null,volume:w.volume??null},score:null,tags:[],nose:'',palate:'',finish:'',notes:'',buy:'',price:null,priceDate:null,created:w.order||Date.now(),fromGroup:true});
+  });
+}
+async function shareSession(s){
+  try{
+    if(!s.groupId){
+      const gid=genGid();
+      await setDoc(doc(db,'groups',gid),{name:s.name,date:s.date,hostUid:ME.uid,hostName:PROFILE?.name||ME.displayName||'Gastgeber',created:Date.now()});
+      await commitOps(D.tastings.filter(t=>t.sessionId===s.id).map(t=>['set',doc(db,'groups',gid,'whiskies',t.id),GW(t)]));
+      put('sessions',{...s,groupId:gid,host:true});
+    }
+    openShareModal(D.sessions.find(x=>x.id===s.id));
+  }catch(e){failG(e)}
+}
+async function stopSharing(s,quiet){
+  try{
+    const ops=[];(await getDocs(collection(db,'groups',s.groupId,'whiskies'))).forEach(d=>ops.push(['del',d.ref]));
+    await commitOps(ops);await deleteDoc(doc(db,'groups',s.groupId));
+    if(!quiet){const {groupId,host,...rest}=s;put('sessions',rest)}
+  }catch(e){failG(e)}
+}
+function openShareModal(s){
+  const link=groupLink(s.groupId);
+  const d=modal(`<div class="mhead"><h2>Degustation teilen</h2><button class="x" data-close aria-label="Schliessen">✕</button></div>
+  <p class="muted sm" style="margin:0">Freunde scannen den QR-Code mit der Handykamera oder in der App unter «Beitreten». Sie sehen alle Whiskys dieser Degustation. Bewertungen bleiben bei jedem privat.</p>
+  <div class="qr" id="qr"><span class="muted sm">QR-Code wird erstellt …</span></div>
+  <div class="box"><label style="margin:0">Link</label><div class="row"><input readonly value="${esc(link)}" style="min-width:0"><button class="btn" data-copy>Kopieren</button></div></div>
+  <div class="row wrap sb">${navigator.share?'<button class="btn pri" data-share>Link senden</button>':'<span></span>'}<button class="btn danger" data-stop>Teilen beenden</button></div>`);
+  loadQR().then(()=>{const q=qrcode(0,'M');q.addData(link);q.make();$('#qr',d).innerHTML=q.createSvgTag({cellSize:6,margin:0,scalable:true})}).catch(e=>{$('#qr',d).innerHTML=`<span class="err sm">${esc(e.message)}</span>`});
+  $('[data-copy]',d).onclick=async()=>{try{await navigator.clipboard.writeText(link);toast('Link kopiert')}catch{$('input',d).select();toast('Link markiert, bitte kopieren')}};
+  $('[data-share]',d)?.addEventListener('click',()=>navigator.share({title:s.name,text:'Komm zu meiner Degustation in Whisky Vault',url:link}).catch(()=>{}));
+  $('[data-stop]',d).onclick=async()=>{if(confirm('Teilen beenden? Wer schon dabei ist, behält seine Kopie. Neue Whiskys kommen nicht mehr an.')){await stopSharing(s);d.close();toast('Teilen beendet')}};
+}
+async function joinGroup(gid){
+  try{
+    const ex=D.sessions.find(s=>s.groupId===gid);
+    if(ex){UI.tab='degustation';UI.sessionId=ex.id;render();toast(ex.host?'Das ist deine eigene Degustation.':'Du bist schon dabei.');return}
+    const g=await getDoc(doc(db,'groups',gid));
+    if(!g.exists()){alert('Diese Degustation gibt es nicht mehr oder der Link ist ungültig.');return}
+    const x=g.data(),n=(await getDocs(collection(db,'groups',gid,'whiskies'))).docs.length;
+    const d=modal(`<div class="mhead"><h2>Degustation beitreten</h2><button class="x" data-close aria-label="Schliessen">✕</button></div>
+    <div class="box"><b style="font:400 1.3rem var(--serif)">${esc(x.name)}</b><span class="muted sm">${esc([x.hostName?'von '+x.hostName:'',fmtDate(x.date),n+(n===1?' Whisky':' Whiskys')].filter(Boolean).join(' · '))}</span></div>
+    <p class="muted sm" style="margin:0">Alle Whiskys erscheinen in deiner Degustation. Deine Bewertungen sieht nur du.</p>
+    <div class="row sb"><button class="btn ghost" data-close>Abbrechen</button><button class="btn pri" data-j>Beitreten</button></div>`);
+    $('[data-j]',d).onclick=()=>{
+      const s=x.hostUid===ME.uid?{id:uid(),name:x.name,date:x.date,groupId:gid,host:true}:{id:uid(),name:x.name,date:x.date,groupId:gid,host:false,hostName:x.hostName||''};
+      put('sessions',s);UI.tab='degustation';UI.sessionId=s.id;d.close();render();toast('Du bist dabei');
+    };
+  }catch(e){alert(e.code==='permission-denied'?'Gemeinsame Degustationen sind noch nicht freigeschaltet (Datenbankregeln).':'Beitreten nicht möglich: '+(e.code||e.message))}
+}
+function checkJoin(){
+  let gid='';try{gid=sessionStorage.getItem('wv-join')||''}catch{}
+  if(!gid)return;
+  let n=0;
+  const wait=()=>{
+    if(!ME||++n>60)return;
+    if(LOADED.s&&LOADED.t&&!document.querySelector('dialog[open]')){try{sessionStorage.removeItem('wv-join')}catch{}joinGroup(gid)}
+    else setTimeout(wait,300);
+  };
+  wait();
+}
+(()=>{try{const j=new URLSearchParams(location.search).get('join');if(j&&/^[A-Za-z0-9]{12,40}$/.test(j)){sessionStorage.setItem('wv-join',j);history.replaceState(null,'',location.pathname+location.hash)}}catch{}})();
+
+/* ============ Blatt scannen (Texterkennung) ============ */
+let tessP;const loadTess=()=>tessP??=new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js';s.onload=res;s.onerror=()=>{tessP=null;rej(new Error('Texterkennung konnte nicht geladen werden'))};document.head.appendChild(s)});
+const TESS_PATHS={workerPath:'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/worker.min.js',corePath:'https://cdn.jsdelivr.net/npm/tesseract.js-core@5.1.1',langPath:'https://cdn.jsdelivr.net/npm/@tesseract.js-data/eng@1.0.0/4.0.0_best_int'};
+function prepForOcr(file,max=2200){
+  return new Promise((res,rej)=>{const img=new Image(),u=URL.createObjectURL(file);
+    img.onload=()=>{
+      const k=Math.min(1,max/Math.max(img.width,img.height)),c=document.createElement('canvas');c.width=Math.round(img.width*k);c.height=Math.round(img.height*k);
+      const g=c.getContext('2d');g.drawImage(img,0,0,c.width,c.height);URL.revokeObjectURL(u);
+      const id=g.getImageData(0,0,c.width,c.height),p=id.data;
+      for(let i=0;i<p.length;i+=4){const y=.299*p[i]+.587*p[i+1]+.114*p[i+2],v=Math.max(0,Math.min(255,(y-128)*1.35+128));p[i]=p[i+1]=p[i+2]=v}
+      g.putImageData(id,0,0);res(c.toDataURL('image/png'));
+    };
+    img.onerror=()=>{URL.revokeObjectURL(u);rej(new Error('Bild nicht lesbar'))};img.src=u});
+}
+async function ocrFile(file,onStatus){
+  await loadTess();
+  const img=await prepForOcr(file);
+  const L={'loading tesseract core':'Texterkennung wird geladen …','initializing tesseract':'Wird gestartet …','initialized tesseract':'Wird gestartet …','loading language traineddata':'Sprachdaten werden geladen …','initializing api':'Wird gestartet …','recognizing text':'Text wird gelesen'};
+  const w=await Tesseract.createWorker('eng',1,{...TESS_PATHS,logger:m=>onStatus((L[m.status]||m.status)+(m.status==='recognizing text'?' '+Math.round((m.progress||0)*100)+' %':''))});
+  try{return (await w.recognize(img)).data.text}finally{await w.terminate()}
+}
+const SKIP_LINE=/^(datum|date|name|seite|page|punkte|bewertung|notizen?|nr\.?|no\.?|nummer|degustation|tasting|whisky|whiskies|liste|programm|menu|menü)\b/i;
+function cleanSheet(text){
+  const out=[];
+  for(const raw of String(text).split(/\r?\n/)){
+    let l=raw.replace(/[|_~]+/g,' ').replace(/\s+/g,' ').trim();
+    l=l.replace(/^[\s•*·»>\-–—]+/,'').replace(/^(?:no\.?|nr\.?|#)?\s*\d{1,2}\s*[.):\-–—]\s+/i,'').trim();
+    if((l.match(/[A-Za-zÄÖÜäöüéèà]/g)||[]).length<3)continue;
+    if(SKIP_LINE.test(l)&&l.split(' ').length<=3)continue;
+    if(/^\d{1,2}[./]\d{1,2}[./]\d{2,4}/.test(l))continue;
+    out.push(l);
+  }
+  return out;
+}
+function splitAbv(line){
+  let abv=null,name=line;const m=line.match(/(\d{2}(?:[.,]\d)?)\s*(?:%|vol)/i);
+  if(m){abv=Number(m[1].replace(',','.'));name=line.replace(m[0],'').replace(/\(\s*\)/g,'').replace(/\s+/g,' ').replace(/[\s,;\-–]+$/,'').trim()}
+  return{name:name||line,abv};
+}
+function addTastingQuiet(w){
+  const ex=D.tastings.find(t=>t.sessionId===UI.sessionId&&t.whisky.name.trim().toLowerCase()===w.name.trim().toLowerCase());
+  if(ex)return null;
+  const t={id:uid(),sessionId:UI.sessionId,bottleId:null,whisky:{name:w.name||'',distillery:w.distillery||'',barcode:w.barcode||'',image:w.image||'',abv:w.abv||null,volume:w.volume||null},score:null,tags:[],nose:'',palate:'',finish:'',notes:'',buy:'',price:null,priceDate:null,created:Date.now()+(w.n||0)};
+  put('tastings',t);return t;
+}
+async function enrichTastings(list){
+  toast('Ergänze Daten online …');
+  for(const t of list){
+    try{
+      const f=x=>String(x).toLowerCase().replace(/[^a-z0-9]/g,''),n=f(t.whisky.name);
+      const r=(await searchAll(t.whisky.name)).find(x=>x.name&&(f(x.name).includes(n)||n.includes(f(x.name))));
+      if(!r)continue;
+      const cur=D.tastings.find(x=>x.id===t.id);if(!cur)continue;
+      const img=cur.whisky.image||(r.image?await cacheImage(r.image):'');
+      put('tastings',{...cur,whisky:{...cur.whisky,distillery:cur.whisky.distillery||r.distillery||'',barcode:cur.whisky.barcode||r.barcode||'',abv:cur.whisky.abv??r.abv??null,volume:cur.whisky.volume??r.volume??null,image:img}});
+    }catch{}
+  }
+  toast('Daten ergänzt');
+}
+function openSheetScan(){
+  if(!UI.sessionId)return;
+  const d=modal(`<div class="mhead"><h2>Liste scannen</h2><button class="x" data-close aria-label="Schliessen">✕</button></div>
+  <p class="muted sm" style="margin:0">Fotografiere das Blatt mit den Whiskys der Degustation. Die App liest den Text, du prüfst die Liste und fügst sie ein. Beim ersten Mal lädt die Texterkennung etwa 7 MB.</p>
+  <div class="row"><button class="btn pri" data-photo>Blatt fotografieren</button><button class="btn" data-pick>Bild wählen</button><input type="file" accept="image/*" capture="environment" hidden data-cam><input type="file" accept="image/*" hidden data-file></div>
+  <div class="note" data-st hidden></div>
+  <div><label>Whiskys (ein Name pro Zeile, du kannst alles ändern)</label><textarea name="lines" rows="9" placeholder="1. Glen Moray Elgin Classic 40 %&#10;2. Lagavulin 16&#10;…" style="min-height:160px"></textarea></div>
+  <label class="chk"><input type="checkbox" name="enr" checked> Daten online ergänzen (Bild, Brennerei, Alkohol)</label>
+  <div class="row sb"><button class="btn ghost" data-close>Abbrechen</button><button class="btn pri" data-add>Hinzufügen</button></div>`);
+  const st=$('[data-st]',d),ta=$('[name=lines]',d);
+  const run=async file=>{
+    if(!file)return;st.hidden=false;st.textContent='Bild wird vorbereitet …';
+    try{
+      const text=await ocrFile(file,m=>{st.textContent=m});
+      const lines=cleanSheet(text);
+      ta.value=(ta.value.trim()?ta.value.trim()+'\n':'')+lines.join('\n');
+      st.textContent=lines.length?`${lines.length} Zeilen erkannt. Prüfe die Liste und entferne, was kein Whisky ist.`:'Es wurde kein Text erkannt. Versuche ein schärferes Foto oder tippe die Namen ein.';
+    }catch(e){st.innerHTML=`<span class="err">${esc(e.message||'Texterkennung fehlgeschlagen')}</span>`}
+  };
+  $('[data-photo]',d).onclick=()=>$('[data-cam]',d).click();
+  $('[data-pick]',d).onclick=()=>$('[data-file]',d).click();
+  $$('input[type=file]',d).forEach(i=>i.onchange=e=>{const f=e.target.files[0];e.target.value='';run(f)});
+  $('[data-add]',d).onclick=()=>{
+    const names=ta.value.split('\n').map(x=>x.trim()).filter(Boolean);
+    if(!names.length){ta.focus();return}
+    const added=[];names.forEach((l,i)=>{const w=splitAbv(l);const t=addTastingQuiet({...w,n:i});if(t)added.push(t)});
+    const enrich=$('[name=enr]',d).checked;d.close();
+    toast(added.length?`${added.length} Whisky${added.length>1?'s':''} hinzugefügt`:'Alle Whiskys waren schon in der Degustation');
+    if(enrich&&added.length)setTimeout(()=>enrichTastings(added),1200);
+  };
+}
+
 /* ============ Degustation ============ */
 function rTast(v){
   const ses=D.sessions.slice().sort((a,b)=>b.date.localeCompare(a.date));
   if(UI.sessionId&&!D.sessions.find(s=>s.id===UI.sessionId))UI.sessionId=null;
   if(!UI.sessionId&&ses[0])UI.sessionId=ses[0].id;
   const cur=D.sessions.find(s=>s.id===UI.sessionId);
-  let html=`<h2 class="ptitle">Degustationen</h2><div class="tools"><select id="ses" ${ses.length?'':'disabled'} style="flex:1 1 200px">${ses.map(s=>`<option value="${s.id}" ${s.id===UI.sessionId?'selected':''}>${esc(s.name)} – ${fmtDate(s.date)}</option>`).join('')||'<option>Noch keine Degustation</option>'}</select><button class="btn pri" id="newses">+ Neue Degustation</button>${cur?'<button class="btn ghost danger" id="delses">Löschen</button>':''}</div>`;
+  let html=`<h2 class="ptitle">Degustationen</h2><div class="tools"><select id="ses" ${ses.length?'':'disabled'} style="flex:1 1 200px">${ses.map(s=>`<option value="${s.id}" ${s.id===UI.sessionId?'selected':''}>${esc(s.name)} – ${fmtDate(s.date)}</option>`).join('')||'<option>Noch keine Degustation</option>'}</select><button class="btn pri" id="newses">+ Neue Degustation</button>${cur?'<button class="btn ghost danger" id="delses">Löschen</button>':''}</div><div class="tools" style="margin-top:-8px">${cur?'<button class="btn" id="sheet">Liste scannen</button><button class="btn" id="share">Teilen</button>':''}<button class="btn" id="join">Beitreten</button></div>${cur?.groupId?`<p class="muted sm" style="margin:-8px 0 16px">${cur.host?'Du teilst diese Degustation.':'Gemeinsam mit '+esc(cur.hostName||'einem Freund')+'.'}</p>`:''}`;
   if(!cur){v.innerHTML=html+'<div class="empty"><b>Starte eine Degustation</b>Lege einen Abend an, such die Whiskys per Name oder Barcode und bewerte jeden. Am Ende siehst du, was dir geschmeckt hat.</div>';bindSes();return}
   html+=`<div class="box" style="margin-bottom:16px"><label style="margin:0">Whisky zur Degustation hinzufügen</label><div class="row"><input id="tq" placeholder="Name oder Barcode (Sammlung & online)"><button class="btn" id="tgo">Suchen</button><button class="btn" id="tscan" title="Barcode scannen">Scannen</button></div><div class="results" id="tres"></div></div>`;
   const ts=D.tastings.filter(t=>t.sessionId===cur.id).sort((a,b)=>(b.score??-1)-(a.score??-1)||a.created-b.created);
@@ -843,8 +1073,11 @@ function bindSes(){
     const d=modal(`<div class="mhead"><h2>Neue Degustation</h2><button class="x" data-close>✕</button></div><div><label>Name</label><input name="n" value="Degustation ${fmtDate(today())}"></div><div><label>Datum</label><input name="dt" type="date" value="${today()}"></div><div class="row sb"><span></span><div class="row"><button class="btn ghost" data-close>Abbrechen</button><button class="btn pri" data-s>Anlegen</button></div></div>`);
     $('[data-s]',d).onclick=()=>{const s={id:uid(),name:$('[name=n]',d).value.trim()||'Degustation',date:$('[name=dt]',d).value||today()};UI.sessionId=s.id;put('sessions',s);d.close()};
   };
+  $('#join')?.addEventListener('click',async()=>{const c=await scanBarcode({qr:true});if(!c)return;const gid=parseJoin(c);if(gid)joinGroup(gid);else toast('Das ist kein Code einer Degustation.')});
+  $('#sheet')?.addEventListener('click',openSheetScan);
+  $('#share')?.addEventListener('click',()=>{const x=D.sessions.find(y=>y.id===UI.sessionId);if(x)shareSession(x)});
   const sel=$('#ses');if(sel&&!sel.disabled)sel.onchange=e=>{UI.sessionId=e.target.value;render()};
-  const dl=$('#delses');if(dl)dl.onclick=()=>{if(confirm('Diese Degustation samt Bewertungen löschen?')){const sid=UI.sessionId;D.tastings.filter(t=>t.sessionId===sid).forEach(t=>del('tastings',t.id));del('sessions',sid);UI.sessionId=null}};
+  const dl=$('#delses');if(dl)dl.onclick=()=>{if(confirm('Diese Degustation samt Bewertungen löschen?')){const sid=UI.sessionId,s0=D.sessions.find(x=>x.id===sid);D.tastings.filter(t=>t.sessionId===sid).forEach(t=>del('tastings',t.id));del('sessions',sid);UI.sessionId=null;if(s0?.groupId&&s0.host)stopSharing(s0,true)}};
 }
 async function tastingSearch(q,el){
   const ql=q.toLowerCase();
@@ -1062,9 +1295,11 @@ function rAccount(v){
   <div class="box"><label style="margin:0">Währung</label><select id="cur">${['CHF','EUR','USD','GBP'].map(c=>`<option ${c===D.settings.currency?'selected':''}>${c}</option>`).join('')}</select></div>
   <div class="box"><label style="margin:0">Backup</label><p class="sm muted" style="margin:0">Deine Daten liegen in deinem Konto in der Cloud. Ein zusätzliches Backup als Datei ist trotzdem sinnvoll.</p>
     <div class="row wrap"><button class="btn pri" id="exp">Backup exportieren (JSON)</button><button class="btn" id="imp">Backup importieren</button><button class="btn" id="csv">Sammlung als CSV</button><input type="file" id="impf" accept="application/json" hidden></div></div>
+  <div class="box"><label style="margin:0">Version</label><div>Whisky Vault ${APP_VERSION}</div><div><button class="btn" id="clog">Änderungsprotokoll anzeigen</button></div></div>
   <div class="box"><label style="margin:0">Quellen</label><p class="sm muted" style="margin:0">Produktdaten und Bilder: Open Food Facts, UPCitemdb und Wikidata (nicht jede Flasche ist vorhanden). Preise: Open Prices (Community-Meldungen) und Vergleichslinks zu Preisportalen.</p></div>
   <div class="box"><button class="btn danger" id="wipe">Alle meine Whisky-Daten löschen</button></div></div>`;
   $('#out').onclick=()=>signOut(auth);
+  $('#clog').onclick=()=>showChangelog(CHANGELOG);
   $('#cur').onchange=e=>{D.settings.currency=e.target.value;saveSettings();render()};
   $('#exp').onclick=()=>dl(`whisky-vault-${today()}.json`,JSON.stringify({bottles:D.bottles,sessions:D.sessions,tastings:D.tastings,wishlist:D.wishlist,settings:D.settings}),'application/json');
   $('#imp').onclick=()=>$('#impf').click();
@@ -1095,8 +1330,10 @@ else onAuthStateChanged(auth,async u=>{
   $('#chip').textContent=u?(u.displayName||u.email||''):'';
   if(!u){renderAuth();return}
   render();
+  setTimeout(maybeChangelog,600);
   await ensureProfile();
   startListeners();
+  checkJoin();
   try{const l=await LocalDB.get('data');if(l&&Array.isArray(l.bottles)&&l.bottles.length){LEGACY=l;toast('Lokale Daten der alten Version gefunden – siehe Tab «Konto».')}}catch{}
 });
 </script>
