@@ -358,13 +358,13 @@ function startListeners(){
   L(query(collection(db,'friends'),where('members','array-contains',u)),async s=>{
     FR.friends=s.docs.map(d=>({pid:d.id,id:d.data().members.find(m=>m!==u),by:d.data().by}));
     await Promise.all(FR.friends.filter(f=>!FR.profiles[f.id]).map(async f=>{try{FR.profiles[f.id]=(await getDoc(doc(db,'profiles',f.id))).data()||{}}catch{FR.profiles[f.id]={}}}));
-    noteNew('fr',FR.friends,f=>({kind:'friendAccepted',title:'Neuer Freund',body:`${FR.profiles[f.id]?.name||'Jemand'} ist jetzt dein Freund.`,go:'freunde',tag:'fr:'+f.pid}),f=>f.by===u);
+    noteNew('fr',FR.friends,f=>({kind:'friendAccepted',title:'Neuer Freund',body:`${FR.profiles[f.id]?.name||'Jemand'} ist jetzt dein Freund.`,tag:'fr:'+f.pid}),f=>f.by===u);
     watchActivity();
     sched();
   });
-  L(query(collection(db,'requests'),where('to','==',u)),s=>{FR.incoming=s.docs.map(d=>({id:d.id,...d.data()}));noteNew('req',FR.incoming,r=>({kind:'friendReq',title:'Freundschaftsanfrage',body:`${r.fromName||'Jemand'} möchte dein Freund sein.`,go:'freunde',tag:'req:'+r.id}));sched()});
+  L(query(collection(db,'requests'),where('to','==',u)),s=>{FR.incoming=s.docs.map(d=>({id:d.id,...d.data()}));noteNew('req',FR.incoming,r=>({kind:'friendReq',title:'Freundschaftsanfrage',body:`${r.fromName||'Jemand'} möchte dein Freund sein.`,tag:'req:'+r.id}));sched()});
   const Lq=(q,fn)=>unsubs.push(onSnapshot(q,fn,e=>console.warn('Listener',e.code)));
-  Lq(query(collection(db,'invites'),where('to','==',u)),s=>{FR.invitesIn=s.docs.map(d=>({id:d.id,...d.data()}));noteNew('inv',FR.invitesIn,i=>({kind:'invite',title:'Einladung zur Degustation',body:`${i.fromName||'Ein Freund'} lädt dich zu «${i.name}» ein.`,go:'degustation',tag:'inv:'+i.id}));sched()});
+  Lq(query(collection(db,'invites'),where('to','==',u)),s=>{FR.invitesIn=s.docs.map(d=>({id:d.id,...d.data()}));noteNew('inv',FR.invitesIn,i=>({kind:'invite',title:'Einladung zur Degustation',body:`${i.fromName||'Ein Freund'} lädt dich zu «${i.name}» ein.`,tag:'inv:'+i.id}));sched()});
   Lq(query(collection(db,'invites'),where('from','==',u)),s=>{FR.invitesOut=s.docs.map(d=>({id:d.id,...d.data()}));sched()});
   L(query(collection(db,'requests'),where('from','==',u)),s=>{FR.outgoing=s.docs.map(d=>({id:d.id,...d.data()}));sched()});
 }
@@ -843,8 +843,7 @@ const CHANGELOG=[
   {v:'1.8.0',d:'2026-10-10',t:[
     'Benachrichtigungen: Die Glocke oben rechts zeigt Freundschaftsanfragen, Einladungen und neue Whiskys deiner Freunde.',
     'Freunde direkt in eine gemeinsame Degustation einladen (im Fenster «Teilen»).',
-    'Mitteilungen lassen sich im Tab Konto pro Art ein- und ausschalten.',
-    'Push-Mitteilungen auch bei geschlossener App, sobald sie eingerichtet sind.']},
+    'Mitteilungen lassen sich im Tab Konto pro Art ein- und ausschalten.']},
   {v:'1.7.1',d:'2026-10-10',t:[
     'Änderungsprotokoll: Die neueste Version steht oben, frühere Versionen lassen sich darunter durchblättern.']},
   {v:'1.7.0',d:'2026-10-10',t:[
@@ -915,7 +914,7 @@ function applyGroup(gid,list,notify){
     if((s.skip||[]).includes(w.id)||D.tastings.some(t=>t.id===w.id))return;
     put('tastings',{id:w.id,sessionId:s.id,bottleId:null,whisky:{name:w.name||'',distillery:w.distillery||'',barcode:w.barcode||'',image:'',abv:w.abv??null,volume:w.volume??null},score:null,tags:[],nose:'',palate:'',finish:'',notes:'',buy:'',price:null,priceDate:null,created:w.order||Date.now(),fromGroup:true});created.push(w);
   });
-  if(notify)created.forEach(w=>fireNote('groupNew','Neuer Whisky',`«${w.name}» in «${s.name}»`,'degustation','grp:'+w.id));
+  if(notify)created.forEach(w=>fireNote('groupNew','Neuer Whisky',`«${w.name}» in «${s.name}»`));
 }
 async function shareSession(s){
   try{
@@ -981,7 +980,6 @@ function checkJoin(){
   };
   wait();
 }
-(()=>{try{const q=new URLSearchParams(location.search),g=q.get('go');if(['sammlung','degustation','kaufliste','freunde','konto'].includes(g)){UI.tab=g;q.delete('go');history.replaceState(null,'',location.pathname+(q.toString()?'?'+q:'')+location.hash)}}catch{}})();
 (()=>{try{const j=new URLSearchParams(location.search).get('join');if(j&&/^[A-Za-z0-9]{12,40}$/.test(j)){sessionStorage.setItem('wv-join',j);history.replaceState(null,'',location.pathname+location.hash)}}catch{}})();
 
 /* ============ Blatt scannen (Texterkennung) ============ */
@@ -1076,24 +1074,18 @@ function openSheetScan(){
 }
 
 /* ============ Benachrichtigungen ============ */
-const VAPID_PUBLIC_KEY='';   // Öffentlicher VAPID-Schlüssel für Push bei geschlossener App (siehe functions/README.md)
 const NOTIFY_KINDS=[['friendReq','Freundschaftsanfrage erhalten'],['friendAccepted','Anfrage wurde angenommen'],['invite','Einladung zu einer Degustation'],['friendNew','Freund hat einen Whisky hinzugefügt'],['groupNew','Neuer Whisky in gemeinsamer Degustation']];
 const nset=k=>D.settings.notify?.[k]??true;
 const KNOWN=new Set(),INIT={};
 const seenTs=()=>{try{let v=Number(localStorage.getItem('wv-seen-ts'));if(!v){v=Date.now();localStorage.setItem('wv-seen-ts',String(v))}return v}catch{return 0}};
 const markSeen=()=>{try{localStorage.setItem('wv-seen-ts',String(Date.now()))}catch{}};
-const pushOn=()=>{try{return localStorage.getItem('wv-push')==='1'&&Notification.permission==='granted'}catch{return false}};
-function fireNote(kind,title,body,go,tag){
+function fireNote(kind,title,body){
   if(!nset(kind))return;
   toast(title+': '+body);
-  try{
-    if(document.hidden&&Notification.permission==='granted'&&!pushOn()&&navigator.serviceWorker)
-      navigator.serviceWorker.ready.then(r=>r.showNotification(title,{body,tag,icon:'icons/icon-192.png',data:{url:'./?go='+go}})).catch(()=>{});
-  }catch{}
 }
 function noteNew(src,list,make,skip){
   const first=!INIT[src];INIT[src]=true;
-  list.forEach(x=>{const m=make(x);if(KNOWN.has(m.tag))return;KNOWN.add(m.tag);if(!first&&!(skip&&skip(x)))fireNote(m.kind,m.title,m.body,m.go,m.tag)});
+  list.forEach(x=>{const m=make(x);if(KNOWN.has(m.tag))return;KNOWN.add(m.tag);if(!first&&!(skip&&skip(x)))fireNote(m.kind,m.title,m.body)});
 }
 let FACT=new Map();
 function stopActivityWatch(){FACT.forEach(h=>h.un());FACT=new Map();KNOWN.clear();for(const k of Object.keys(INIT))delete INIT[k]}
@@ -1105,7 +1097,7 @@ function watchActivity(){
     h.un=onSnapshot(query(collection(db,'profiles',id,'activity'),orderBy('ts','desc'),limit(10)),s=>{
       const list=s.docs.map(d=>({id:d.id,fid:id,...d.data()}));FR.activity[id]=list;
       const fresh=list.filter(a=>!KNOWN.has('act:'+a.id));list.forEach(a=>KNOWN.add('act:'+a.id));
-      if(h.init)fresh.filter(a=>a.ts>seenTs()).forEach(a=>fireNote('friendNew',FR.profiles[id]?.name||'Ein Freund',`hat «${a.name}» hinzugefügt.`,'freunde','act:'+a.id));
+      if(h.init)fresh.filter(a=>a.ts>seenTs()).forEach(a=>fireNote('friendNew',FR.profiles[id]?.name||'Ein Freund',`hat «${a.name}» hinzugefügt.`));
       h.init=true;sched();
     },()=>{FR.activity[id]=[]});
   }
@@ -1144,25 +1136,6 @@ async function inviteFriend(s,fid){
   catch(e){toast(e.code==='permission-denied'?'Einladen nicht möglich: Die Datenbankregeln dafür fehlen noch.':'Einladen fehlgeschlagen: '+(e.code||e.message));return false}
 }
 const dropInvites=gid=>FR.invitesIn.filter(i=>i.gid===gid).forEach(i=>deleteDoc(doc(db,'invites',i.id)).catch(()=>{}));
-/* Push-Mitteilungen bei geschlossener App (braucht die Cloud Functions, siehe functions/README.md) */
-const pushSupported=()=>'serviceWorker' in navigator&&'PushManager' in window&&'Notification' in window;
-const b64u=s=>{const r=atob((s+'='.repeat((4-s.length%4)%4)).replace(/-/g,'+').replace(/_/g,'/'));return Uint8Array.from([...r].map(c=>c.charCodeAt(0)))};
-const sha=async t=>[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(t)))].map(x=>x.toString(16).padStart(2,'0')).join('').slice(0,32);
-async function enablePush(){
-  if(!pushSupported())throw new Error('Dieses Gerät unterstützt keine Push-Mitteilungen. Auf dem iPhone muss die App zuerst zum Home-Bildschirm hinzugefügt werden.');
-  if(await Notification.requestPermission()!=='granted')throw new Error('Mitteilungen sind im Browser blockiert.');
-  const reg=await Promise.race([navigator.serviceWorker.ready,new Promise((_,r)=>setTimeout(()=>r(new Error('Der Hintergrunddienst ist nicht bereit. Seite neu laden und nochmals versuchen.')),6000))]);
-  let sub=await reg.pushManager.getSubscription();
-  if(!sub)sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64u(VAPID_PUBLIC_KEY)});
-  const j=sub.toJSON();
-  await setDoc(doc(db,'users',ME.uid,'push',await sha(j.endpoint)),{endpoint:j.endpoint,keys:j.keys,created:Date.now(),ua:navigator.userAgent.slice(0,90)});
-  try{localStorage.setItem('wv-push','1')}catch{}
-}
-async function disablePush(){
-  try{const reg=await navigator.serviceWorker.ready,sub=await reg.pushManager.getSubscription();if(sub){await deleteDoc(doc(db,'users',ME.uid,'push',await sha(sub.endpoint))).catch(()=>{});await sub.unsubscribe()}}catch{}
-  try{localStorage.removeItem('wv-push')}catch{}
-}
-
 /* ============ Degustation ============ */
 function inviteBanners(){
   return FR.invitesIn.map(i=>`<div class="box" style="margin-bottom:12px"><div class="row sb"><div><b>${esc(i.name)}</b><div class="muted sm">Einladung von ${esc(i.fromName||'einem Freund')}</div></div><div class="row"><button class="btn pri" data-inv="${i.id}">Beitreten</button><button class="btn ghost" data-idec="${i.id}">Ablehnen</button></div></div></div>`).join('');
@@ -1422,20 +1395,14 @@ function rAccount(v){
     <div class="row wrap"><button class="btn pri" id="exp">Backup exportieren (JSON)</button><button class="btn" id="imp">Backup importieren</button><button class="btn" id="csv">Sammlung als CSV</button><input type="file" id="impf" accept="application/json" hidden></div></div>
   <div class="box"><label style="margin:0">Benachrichtigungen</label>
     ${NOTIFY_KINDS.map(([k,t])=>`<label class="chk"><input type="checkbox" data-nk="${k}" ${nset(k)?'checked':''}> ${t}</label>`).join('')}
-    <p class="sm muted" style="margin:0">Die Glocke oben rechts zeigt neue Anfragen, Einladungen und Whiskys deiner Freunde.</p>
-    ${VAPID_PUBLIC_KEY?`<div class="row wrap"><button class="btn" id="pushbtn">${pushOn()?'Push auf diesem Gerät ausschalten':'Push auf diesem Gerät einschalten'}</button><span class="sm muted" id="pushst">${pushOn()?'Aktiv: Du bekommst Mitteilungen auch bei geschlossener App.':''}</span></div>`:'<p class="sm muted" style="margin:0">Mitteilungen bei geschlossener App sind noch nicht eingerichtet.</p>'}</div>
+    <p class="sm muted" style="margin:0">Die Glocke oben rechts zeigt neue Anfragen, Einladungen und Whiskys deiner Freunde. Meldungen erscheinen, solange die App offen ist.</p>
+  </div>
   <div class="box"><label style="margin:0">Version</label><div>Whisky Vault ${APP_VERSION}</div><div><button class="btn" id="clog">Änderungsprotokoll anzeigen</button></div></div>
   <div class="box"><label style="margin:0">Quellen</label><p class="sm muted" style="margin:0">Produktdaten und Bilder: Open Food Facts, UPCitemdb und Wikidata (nicht jede Flasche ist vorhanden). Preise: Open Prices (Community-Meldungen) und Vergleichslinks zu Preisportalen.</p></div>
   <div class="box"><button class="btn danger" id="wipe">Alle meine Whisky-Daten löschen</button></div></div>`;
-  $('#out').onclick=async()=>{if(pushOn())await disablePush();signOut(auth)};
+  $('#out').onclick=()=>signOut(auth);
   $('#clog').onclick=()=>showChangelog(APP_VERSION);
   $$('[data-nk]',v).forEach(c=>c.onchange=()=>{D.settings.notify={...(D.settings.notify||{}),[c.dataset.nk]:c.checked};saveSettings();updateBell()});
-  $('#pushbtn')?.addEventListener('click',async e=>{
-    const b=e.target,st=$('#pushst');b.disabled=true;
-    try{if(pushOn()){await disablePush();toast('Push ausgeschaltet')}else{await enablePush();toast('Push eingeschaltet')}}
-    catch(err){st.className='sm err';st.textContent=err.message||'Das hat nicht geklappt.'}
-    b.disabled=false;if(!st.classList.contains('err'))render();
-  });
   $('#cur').onchange=e=>{D.settings.currency=e.target.value;saveSettings();render()};
   $('#exp').onclick=()=>dl(`whisky-vault-${today()}.json`,JSON.stringify({bottles:D.bottles,sessions:D.sessions,tastings:D.tastings,wishlist:D.wishlist,settings:D.settings}),'application/json');
   $('#imp').onclick=()=>$('#impf').click();
@@ -1472,7 +1439,6 @@ else onAuthStateChanged(auth,async u=>{
   await ensureProfile();
   startListeners();
   checkJoin();
-  if(VAPID_PUBLIC_KEY&&pushOn())enablePush().catch(()=>{});
   try{const l=await LocalDB.get('data');if(l&&Array.isArray(l.bottles)&&l.bottles.length){LEGACY=l;toast('Lokale Daten der alten Version gefunden – siehe Tab «Konto».')}}catch{}
 });
 </script>
