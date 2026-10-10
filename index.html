@@ -198,6 +198,9 @@ label{display:block;font:400 11px var(--mono);letter-spacing:.1em;text-transform
 .note{border:1px solid var(--line);border-radius:var(--r);padding:10px 12px;font-size:14px}
 .note.bad{border-color:var(--bad)}
 .note.bad b{color:var(--bad)}
+.reader.live{position:relative;min-height:0}
+.reader.live video{width:100%;display:block;max-height:46vh;object-fit:contain;background:#000}
+.reader.live .aim{position:absolute;left:5%;right:5%;top:20%;bottom:20%;border:2px solid var(--copper);box-shadow:0 0 0 999px rgba(0,0,0,.38);pointer-events:none}
 .reader{width:100%;min-height:120px;border-radius:var(--r);overflow:hidden;background:var(--cask)}
 .res{display:flex;gap:12px;align-items:center;text-align:left;background:transparent;border:0;border-bottom:1px solid var(--line);padding:8px 0;cursor:pointer;width:100%}
 .res:hover b{color:var(--copper2)}
@@ -383,7 +386,7 @@ async function getJSON(url){
   catch(e){throw new Error(e.name==='AbortError'?'Zeitüberschreitung':/load failed|failed to fetch|networkerror|network request/i.test(e.message)?'Keine Verbindung zum Suchdienst':e.message)}
   finally{clearTimeout(t)}
 }
-const OFF_FIELDS='code,product_name,brands,image_front_url,image_front_small_url,quantity,nutriments';
+const OFF_FIELDS='code,product_name,brands,image_front_url,image_front_small_url,quantity,nutriments,categories_tags';
 function parseVol(q){
   if(!q)return null;const m=String(q).toLowerCase().replace(',','.').match(/([\d.]+)\s*(cl|ml|l)\b/);if(!m)return null;
   const v=parseFloat(m[1]);return Math.round(m[2]==='cl'?v*10:m[2]==='l'?v*1000:v);
@@ -393,13 +396,15 @@ function mapOff(p){
   const brand=Array.isArray(p.brands)?p.brands[0]:String(p.brands||'').split(',')[0];
   const img=p.image_front_url||p.image_url||p.image_front_small_url||p.image_small_url||'';
   const thumb=p.image_front_small_url||p.image_small_url||img;
-  return{name:p.product_name||'(ohne Name)',distillery:(brand||'').trim(),barcode:String(p.code||''),image:img,thumb,abv:abv?Math.round(abv*10)/10:null,volume:parseVol(Array.isArray(p.quantity)?p.quantity[0]:p.quantity)};
+  return{name:p.product_name||'(ohne Name)',distillery:(brand||'').trim(),barcode:String(p.code||''),image:img,thumb,abv:abv?Math.round(abv*10)/10:null,volume:parseVol(Array.isArray(p.quantity)?p.quantity[0]:p.quantity),cats:p.categories_tags||[]};
 }
 /* Bekannte Marken, die oft zusammengeschrieben werden ("Glenmoray" -> "Glen Moray") */
 const BRANDS=['Glen Moray','Glen Grant','Glen Scotia','Glen Garioch','Glen Elgin','Glen Ord','Glen Spey','Glen Keith','Glen Deveron','Old Pulteney','Old Fitzgerald','Royal Lochnagar','Royal Brackla','Highland Park','Johnnie Walker','Jack Daniels','Jim Beam','Makers Mark','Wild Turkey','Four Roses','Captain Morgan','Port Charlotte','Port Ellen','Ben Nevis','Loch Lomond','Black Bottle','Monkey Shoulder','Western Gold','Tullamore Dew','Isle of Jura','Isle of Skye','Bank Note','Dewars','Chivas Regal','Ballantines','Cutty Sark','Famous Grouse','Grants','Teachers','Bell s'];
 const flat=t=>String(t).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]/g,'');
+const stripNoise=t=>t.replace(/\b\d{1,3}(?:[.,]\d+)?\s?(?:%|vol\.?|cl|ml|l)(?=\s|$)/gi,' ').replace(/\b(?:jahre?|jährige[rn]?|years?|year old|yo|y\.o\.|old|single malt|scotch|whisky|whiskey|cask strength|non chill filtered)\b/gi,' ').replace(/\s+/g,' ').trim();
 function queryVariants(q){
   const out=[q];const f=flat(q);
+  const sn=stripNoise(q);if(sn&&sn.length>=3&&sn!==q)out.push(sn);
   for(const b of BRANDS){const bf=flat(b);if(f.startsWith(bf)&&!q.toLowerCase().startsWith(b.toLowerCase())){let n=0,i=0;while(i<q.length&&n<bf.length){if(/[a-z0-9]/i.test(q[i]))n++;i++}out.push((b+' '+q.slice(i)).replace(/\s+/g,' ').trim());break}}
   const w=out[out.length-1].split(/\s+/);
   for(let n=Math.min(w.length-1,3);n>=1;n--){const t=w.slice(0,n).join(' ');if(n>1||t.length>=6)out.push(t)}
@@ -434,7 +439,8 @@ async function wikiSearch(q){
   return (j.search||[]).filter(e=>/whisk|distill|brenner|destill|spirit|bourbon|scotch|rum\b|brand/i.test(e.description||'')).map(e=>({name:e.label,distillery:e.label,barcode:'',image:'',thumb:'',abv:null,volume:null,src:'Wikidata',note:e.description||''}));
 }
 async function codeLookup(code){
-  const rs=await Promise.allSettled([catByCode(code),offByCode(code),upcByCode(code)]);
+  const vs=barcodeVariants(code);
+  const rs=await Promise.allSettled([...vs.map(catByCode),...vs.slice(0,2).map(offByCode),upcByCode(vs[0])]);
   const hit=rs.map(r=>r.value).find(Boolean);
   if(hit)return[hit];
   if(rs.every(r=>r.status==='rejected'))throw rs[0].reason;
@@ -453,18 +459,28 @@ async function offSearch(q){
   };
   let err,ok=false;
   for(const t of variants){
-    for(const run of[()=>sal(t,true),()=>sal(t,false),()=>legacy(t)]){
+    const fz=t.split(' ').map(w=>w.length>=5?w+'~1':w).join(' ');
+    for(const run of[()=>sal(t,true),()=>sal(t,false),()=>legacy(t),()=>sal(fz,false)]){
       try{const r=await run();ok=true;if(r.length)return r.map(x=>({...x,src:'Open Food Facts'}))}catch(e){err=e}
     }
   }
   if(!ok)throw err;return[];
+}
+function rankItems(items,q){
+  const toks=tokenKeys(q);
+  const score=it=>{
+    const hay=tokenKeys(it.name,it.distillery).join(' ');
+    const hit=toks.filter(t=>hay.includes(t)).length;
+    return(it.src==='Whisky Vault'?100:0)+(toks.length?hit/toks.length*60:0)+((it.cats||[]).some(c=>/whisk|bourbon|spirit/.test(c))?20:0)+(it.abv>=30?8:0)+(it.image?4:0);
+  };
+  return items.map((it,i)=>({it,s:score(it),i})).sort((a,b)=>b.s-a.s||a.i-b.i).map(x=>x.it).slice(0,25);
 }
 async function searchAll(q){
   const variants=queryVariants(q.replace(/[()"\[\]{}:]/g,' ').replace(/\s+/g,' ').trim());
   const v1=variants[Math.min(1,variants.length-1)];
   const rs=await Promise.allSettled([catSearch(variants[0]),v1!==variants[0]?catSearch(v1):Promise.resolve([]),offSearch(q),upcSearch(v1),wikiSearch(v1)]);
   if(rs.every(r=>r.status==='rejected'))throw rs[0].reason;
-  return dedupe(rs.flatMap(r=>r.value||[]));
+  return rankItems(dedupe(rs.flatMap(r=>r.value||[])),q);
 }
 async function openPrices(code){
   const j=await getJSON(`https://prices.openfoodfacts.org/api/v1/prices?product_code=${encodeURIComponent(code)}&order_by=price&size=60`);
@@ -544,30 +560,145 @@ function modal(html){
   d.addEventListener('click',e=>{if(e.target.closest('[data-close]'))d.close()});
   d.showModal();return d;
 }
-let h5;
+let h5,bdP;
+/* Ohne eingebauten BarcodeDetector (iPhone, Firefox) nutzt die Scanner-Bibliothek nur einen schwachen JavaScript-Dekoder.
+   Hier wird der genauere zxing-cpp-Dekoder (WebAssembly) als BarcodeDetector nachgeladen. */
+function loadBD(){
+  if('BarcodeDetector' in window)return Promise.resolve(false);
+  return bdP??=(async()=>{
+    const m=await import('https://cdn.jsdelivr.net/npm/barcode-detector@3.2.2/dist/es/polyfill.js');
+    m.setZXingModuleOverrides({locateFile:(f,p)=>f.endsWith('.wasm')?'https://cdn.jsdelivr.net/npm/zxing-wasm@3.1.3/dist/reader/'+f:p+f});
+    await m.prepareZXingModule({fireImmediately:true});
+    return true;
+  })().catch(e=>{bdP=null;console.warn('Scanner-Modul',e);return false});
+}
+const validGtin=c=>{
+  if(!/^(\d{8}|\d{12,14})$/.test(c))return false;
+  const d=[...c].map(Number),k=d.pop();let t=0;d.reverse().forEach((x,i)=>t+=x*(i%2?1:3));
+  return (10-t%10)%10===k;
+};
+const canonGtin=c=>{c=String(c||'').replace(/\D/g,'');if(c.length===12)return'0'+c;if(c.length===14&&c[0]==='0')return c.slice(1);return c};
+const barcodeVariants=c=>{const d=String(c||'').replace(/\D/g,''),k=canonGtin(d);return[...new Set([k,d,k.length===13&&k[0]==='0'?k.slice(1):''].filter(Boolean))]};
 const loadH5=()=>h5??=new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js';s.onload=res;s.onerror=()=>{h5=null;rej(new Error('Scanner konnte nicht geladen werden'))};document.head.appendChild(s)});
+/* Eigener Kamera-Scanner: liest die Mitte des Kamerabilds in voller Auflösung.
+   (Die Bibliothek html5-qrcode verkleinert den Ausschnitt auf Anzeigegrösse, dabei werden Strichcodes unlesbar.) */
+function scanLive(opts={}){
+  const qr=!!opts.qr,hint=qr?'Halte den QR-Code ruhig in den Rahmen.':'Halte den Strichcode (EAN) ruhig und gut beleuchtet in den Rahmen.';
+  return new Promise(resolve=>{
+    const d=modal(`<div class="mhead"><h2>${qr?'QR-Code scannen':'Barcode scannen'}</h2><button class="x" data-close aria-label="Schliessen">✕</button></div><div id="reader" class="reader live"><video id="mvideo" playsinline muted autoplay></video><div class="aim"></div></div><p class="muted sm" id="rmsg">Scanner wird vorbereitet …</p><div id="mcamrow" hidden><label>Kamera</label><select id="mcam"></select></div><div class="row" id="mext" hidden><button class="btn" id="mtorch" hidden>Licht an</button><input type="range" id="mzoom" hidden aria-label="Zoom" style="flex:1"></div><div class="row"><button class="btn" id="mphoto">${qr?'Foto vom QR-Code':'Foto vom Barcode'}</button><input type="file" accept="image/*" capture="environment" hidden id="mfile"></div><div class="row"><input id="mcode" placeholder="${qr?'oder Link bzw. Code einfügen':'oder Nummer eintippen'}" ${qr?'':'inputmode="numeric"'}><button class="btn pri" id="mok">OK</button></div>`);
+    const msg=t=>{$('#rmsg',d).textContent=t};
+    let done=false,stream=null,timer=0,det=null;
+    const stopStream=()=>{clearTimeout(timer);try{stream?.getTracks().forEach(t=>t.stop())}catch{}stream=null};
+    const finish=v=>{if(done)return;done=true;stopStream();d.close();resolve(v)};
+    d.addEventListener('close',()=>finish(null));
+    $('#mok',d).onclick=()=>{const raw=$('#mcode',d).value;const v=qr?raw.trim():raw.replace(/\D/g,'');if(v)finish(v)};
+    $('#mcode',d).addEventListener('keydown',e=>{if(e.key==='Enter')$('#mok',d).click()});
+    let last='',reads=0,bad=0;
+    const onRead=t=>{
+      const c=String(t).trim();
+      if(qr){finish(c);return}
+      if(!validGtin(c)){if(++bad%6===1)msg('Noch nicht sauber gelesen. Ruhig halten, etwas Abstand und gutes Licht.');return}
+      if(c===last)reads++;else{last=c;reads=1}
+      if(reads>=2)finish(c);
+    };
+    const video=$('#mvideo',d),cv=document.createElement('canvas'),cx=cv.getContext('2d',{willReadFrequently:true});
+    const area=b=>{const r=b.boundingBox||{};return(r.width||0)*(r.height||0)};
+    const tick=async()=>{
+      if(done)return;
+      if(video.videoWidth&&video.readyState>=2){
+        try{
+          const vw=video.videoWidth,vh=video.videoHeight,sx=vw*.05,sw=vw*.9,sy=vh*.2,sh=vh*.6,k=Math.min(1,1280/sw);
+          cv.width=Math.round(sw*k);cv.height=Math.round(sh*k);
+          cx.drawImage(video,sx,sy,sw,sh,0,0,cv.width,cv.height);
+          const res=(await det.detect(cv)).filter(b=>b.rawValue);
+          if(res.length)onRead(res.sort((a,b)=>area(b)-area(a))[0].rawValue);
+        }catch{}
+      }
+      if(!done)timer=setTimeout(tick,90);
+    };
+    const prefGet=()=>{try{return localStorage.getItem('wv-cam')||''}catch{return ''}};
+    const prefSet=v=>{try{localStorage.setItem('wv-cam',v)}catch{}};
+    const attempts=id=>[...(id?[{deviceId:{exact:id}}]:[]),{facingMode:{exact:'environment'}},{facingMode:{ideal:'environment'}},{}]
+      .map(c=>({width:{ideal:1920},height:{ideal:1080},...c}));
+    const startCam=async id=>{
+      stopStream();let last;
+      for(const v of attempts(id)){
+        try{stream=await navigator.mediaDevices.getUserMedia({video:v,audio:false});break}catch(e){last=e}
+      }
+      if(!stream)throw last||new Error('Keine Kamera');
+      video.srcObject=stream;await video.play().catch(()=>{});
+      const tr=stream.getVideoTracks()[0],caps=tr.getCapabilities?.()||{};
+      const ext=$('#mext',d),tb=$('#mtorch',d),zr=$('#mzoom',d);
+      if(caps.torch){ext.hidden=false;tb.hidden=false;let on=false;tb.textContent='Licht an';tb.onclick=async()=>{try{await tr.applyConstraints({advanced:[{torch:!on}]});on=!on;tb.textContent=on?'Licht aus':'Licht an'}catch{}}}
+      if(caps.zoom&&caps.zoom.max>caps.zoom.min){ext.hidden=false;zr.hidden=false;zr.min=caps.zoom.min;zr.max=Math.min(caps.zoom.max,5);zr.step=caps.zoom.step||.1;zr.value=tr.getSettings().zoom||caps.zoom.min;zr.oninput=()=>tr.applyConstraints({advanced:[{zoom:Number(zr.value)}]}).catch(()=>{})}
+      try{const cams=(await navigator.mediaDevices.enumerateDevices()).filter(x=>x.kind==='videoinput');
+        if(cams.length>1){const cur=tr.getSettings().deviceId||'';$('#mcam',d).innerHTML=cams.map((c,i)=>`<option value="${esc(c.deviceId)}">${esc(c.label||'Kamera '+(i+1))}</option>`).join('');if(cur)$('#mcam',d).value=cur;$('#mcamrow',d).hidden=false}}catch{}
+      clearTimeout(timer);tick();
+    };
+    $('#mcam',d).onchange=async()=>{prefSet($('#mcam',d).value);msg('Kamera wird gewechselt …');try{await startCam($('#mcam',d).value);msg(hint)}catch{msg('Diese Kamera lässt sich nicht starten. Wähle eine andere.')}};
+    $('#mphoto',d).onclick=()=>$('#mfile',d).click();
+    $('#mfile',d).onchange=async e=>{
+      const file=e.target.files[0];e.target.value='';if(!file||!det)return;
+      msg('Foto wird gelesen …');
+      try{
+        const bmp=await createImageBitmap(file),k=Math.min(1,2400/Math.max(bmp.width,bmp.height)),c=document.createElement('canvas');
+        c.width=Math.round(bmp.width*k);c.height=Math.round(bmp.height*k);c.getContext('2d').drawImage(bmp,0,0,c.width,c.height);
+        const res=(await det.detect(c)).filter(b=>b.rawValue).sort((a,b)=>area(b)-area(a));
+        const r=res[0]&&String(res[0].rawValue).trim();
+        if(r&&(qr||validGtin(r)))finish(r);
+        else msg(r?'Der Code im Foto wurde nicht sauber gelesen. Nochmals fotografieren oder Nummer eintippen.':'Im Foto wurde kein Code erkannt. Näher ran, gerade fotografieren oder Nummer eintippen.');
+      }catch{msg('Das Foto konnte nicht gelesen werden.')}
+    };
+    (async()=>{
+      await Promise.race([loadBD(),new Promise(r=>setTimeout(r,8000))]);
+      if(done)return;
+      if(!('BarcodeDetector' in window)){done=true;d.close();resolve(await scanLegacy(opts));return}
+      det=new BarcodeDetector({formats:qr?['qr_code']:['ean_13','ean_8','upc_a','upc_e']});
+      msg(hint);
+      await startCam(prefGet());
+    })().catch(()=>{if(!done)msg('Kamera nicht verfügbar. Erlaube den Kamerazugriff, nutze „Foto“ oder tippe die Nummer ein.')});
+  });
+}
 async function scanBarcode(opts={}){
+  if(navigator.mediaDevices?.getUserMedia)return scanLive(opts);
+  return scanLegacy(opts);
+}
+async function scanLegacy(opts={}){
   const qr=!!opts.qr,hint=qr?'Halte den QR-Code ruhig in den Rahmen.':'Halte den Strichcode (EAN) ruhig und gut beleuchtet in den Rahmen.';
   try{await loadH5()}catch(e){alert(e.message);return null}
   return new Promise(resolve=>{
-    const d=modal(`<div class="mhead"><h2>${qr?'QR-Code scannen':'Barcode scannen'}</h2><button class="x" data-close aria-label="Schliessen">✕</button></div><div id="reader" class="reader"></div><p class="muted sm" id="rmsg">${hint}</p><div id="mcamrow" hidden><label>Kamera</label><select id="mcam"></select></div><div class="row"><button class="btn" id="mphoto">${qr?'Foto vom QR-Code':'Foto vom Barcode'}</button><input type="file" accept="image/*" capture="environment" hidden id="mfile"></div><div class="row"><input id="mcode" placeholder="${qr?'oder Link bzw. Code einfügen':'oder Nummer eintippen'}" ${qr?'':'inputmode="numeric"'}><button class="btn pri" id="mok">OK</button></div>`);
+    const d=modal(`<div class="mhead"><h2>${qr?'QR-Code scannen':'Barcode scannen'}</h2><button class="x" data-close aria-label="Schliessen">✕</button></div><div id="reader" class="reader"></div><p class="muted sm" id="rmsg">${hint}</p><div id="mcamrow" hidden><label>Kamera</label><select id="mcam"></select></div><div class="row" id="mext" hidden><button class="btn" id="mtorch" hidden>Licht an</button><input type="range" id="mzoom" hidden aria-label="Zoom" style="flex:1"></div><div class="row"><button class="btn" id="mphoto">${qr?'Foto vom QR-Code':'Foto vom Barcode'}</button><input type="file" accept="image/*" capture="environment" hidden id="mfile"></div><div class="row"><input id="mcode" placeholder="${qr?'oder Link bzw. Code einfügen':'oder Nummer eintippen'}" ${qr?'':'inputmode="numeric"'}><button class="btn pri" id="mok">OK</button></div>`);
     let q,done=false;
     const finish=async v=>{if(done)return;done=true;try{await q?.stop()}catch{}try{q?.clear()}catch{}d.close();resolve(v)};
     d.addEventListener('close',()=>finish(null));
     $('#mok',d).onclick=()=>{const raw=$('#mcode',d).value;const v=qr?raw.trim():raw.replace(/\D/g,'');if(v)finish(v)};
     $('#mcode',d).addEventListener('keydown',e=>{if(e.key==='Enter')$('#mok',d).click()});
     const fmts=qr?[Html5QrcodeSupportedFormats.QR_CODE]:[Html5QrcodeSupportedFormats.EAN_13,Html5QrcodeSupportedFormats.EAN_8,Html5QrcodeSupportedFormats.UPC_A,Html5QrcodeSupportedFormats.UPC_E];
-    q=new Html5Qrcode('reader',{formatsToSupport:fmts,useBarCodeDetectorIfSupported:true,experimentalFeatures:{useBarCodeDetectorIfSupported:true},verbose:false});
     $('#mphoto',d).onclick=()=>$('#mfile',d).click();
     $('#mfile',d).onchange=async e=>{
       const file=e.target.files[0];if(!file)return;
       $('#rmsg',d).textContent='Foto wird gelesen …';
-      try{try{await q.stop()}catch{}const r=await q.scanFile(file,false);finish(r)}
+      try{try{await q.stop()}catch{}const r=String(await q.scanFile(file,false)).trim();if(qr||validGtin(r))finish(r);else $('#rmsg',d).innerHTML='<span class="err">Der Code im Foto wurde nicht sauber gelesen. Nochmals fotografieren oder Nummer eintippen.</span>'}
       catch{$('#rmsg',d).innerHTML='<span class="err">Im Foto wurde kein Barcode erkannt. Näher ran, gerade fotografieren, oder Nummer eintippen.</span>'}
     };
     const sel=$('#mcam',d),camRow=$('#mcamrow',d);
     const prefGet=()=>{try{return localStorage.getItem('wv-cam')||''}catch{return ''}};
     const prefSet=v=>{try{localStorage.setItem('wv-cam',v)}catch{}};
+    /* Nur Codes mit gültiger Prüfziffer, und zweimal hintereinander gleich gelesen: schliesst Lesefehler aus */
+    let lastRead='',reads=0,bad=0;
+    const onRead=t=>{
+      const c=String(t).trim();
+      if(qr){finish(c);return}
+      if(!validGtin(c)){if(++bad%6===1)$('#rmsg',d).textContent='Noch nicht sauber gelesen. Ruhig halten, etwas Abstand und gutes Licht.';return}
+      if(c===lastRead)reads++;else{lastRead=c;reads=1}
+      if(reads>=2)finish(c);
+    };
+    const extras=()=>{
+      let c=null;try{c=q.getRunningTrackCameraCapabilities()}catch{}
+      if(!c)return;const ext=$('#mext',d),tb=$('#mtorch',d),zr=$('#mzoom',d);
+      try{const t=c.torchFeature();if(t.isSupported()){ext.hidden=false;tb.hidden=false;tb.textContent='Licht an';tb.onclick=async()=>{try{await t.apply(!t.value());tb.textContent=t.value()?'Licht aus':'Licht an'}catch{}}}}catch{}
+      try{const z=c.zoomFeature();if(z.isSupported()){ext.hidden=false;zr.hidden=false;zr.min=z.min();zr.max=Math.min(z.max(),5);zr.step=z.step()||.1;zr.value=z.value()||z.min();zr.oninput=()=>z.apply(Number(zr.value)).catch(()=>{})}}catch{}
+    };
     const qrbox=(w,h)=>({width:Math.floor(w*.9),height:Math.floor(Math.min(h,w)*.45)});
     /* Wichtig: Mit videoConstraints ignoriert die Bibliothek die Kamera-Angabe im ersten Argument.
        Deshalb steht die Kamerawahl (Rückkamera) hier selbst in den Constraints. */
@@ -576,7 +707,7 @@ async function scanBarcode(opts={}){
     const startCam=async id=>{
       let last;
       for(const vc of attempts(id)){
-        try{await q.start({facingMode:'environment'},{fps:15,qrbox,videoConstraints:vc},t=>finish(t),()=>{});return}
+        try{await q.start({facingMode:'environment'},{fps:15,qrbox,videoConstraints:vc},onRead,()=>{});return}
         catch(e){last=e;try{await q.stop()}catch{}}
       }
       throw last;
@@ -594,20 +725,29 @@ async function scanBarcode(opts={}){
     sel.onchange=async()=>{
       prefSet(sel.value);$('#rmsg',d).textContent='Kamera wird gewechselt …';
       try{await q.stop()}catch{}
-      try{await startCam(sel.value);$('#rmsg',d).textContent=hint}
+      try{await startCam(sel.value);$('#rmsg',d).textContent=hint;extras()}
       catch{$('#rmsg',d).innerHTML='<span class="err">Diese Kamera lässt sich nicht starten. Wähle eine andere.</span>'}
     };
-    startCam(prefGet()).then(listCams).catch(()=>{$('#reader',d).innerHTML='<p class="err" style="padding:12px">Kamera nicht verfügbar. Erlaube den Kamerazugriff, nutze „Foto vom Barcode“ oder tippe die Nummer ein.</p>'});
+    (async()=>{
+      $('#rmsg',d).textContent='Scanner wird vorbereitet …';
+      await Promise.race([loadBD(),new Promise(r=>setTimeout(r,8000))]);
+      if(done)return;
+      q=new Html5Qrcode('reader',{formatsToSupport:fmts,useBarCodeDetectorIfSupported:true,experimentalFeatures:{useBarCodeDetectorIfSupported:true},verbose:false});
+      $('#rmsg',d).textContent=hint;
+      await startCam(prefGet());listCams();extras();
+    })().catch(()=>{if(!done)$('#reader',d).innerHTML='<p class="err" style="padding:12px">Kamera nicht verfügbar. Erlaube den Kamerazugriff, nutze „Foto vom Barcode“ oder tippe die Nummer ein.</p>'});
   });
 }
 async function lookupInto(el,q,onPick){
   q=q.trim();if(!q)return;
   el.innerHTML='<p class="muted sm">Suche läuft …</p>';
   try{
-    const items=/^\d{8,14}$/.test(q)?await codeLookup(q):await searchAll(q);
-    if(!items.length){el.innerHTML='<div class="note"><b>Nichts gefunden.</b> Versuche nur die Marke (z. B. „Glen Moray“), scanne den Barcode oder trage die Daten von Hand ein.</div>';return}
+    const isCode=/^\d{8,14}$/.test(q);
+    const items=isCode?await codeLookup(q):await searchAll(q);
+    if(!items.length){el.innerHTML=isCode?'<div class="note"><b>Dieser Barcode ist noch unbekannt.</b> Er ist im Formular eingetragen. Gib Name und Daten von Hand ein, dann findet ihn die gemeinsame Datenbank beim nächsten Mal.</div>':'<div class="note"><b>Nichts gefunden.</b> Versuche nur die Marke (z. B. „Glen Moray“), scanne den Barcode oder trage die Daten von Hand ein.</div>';return[]}
     el.innerHTML=items.map((it,i)=>`<button class="res" data-i="${i}">${it.thumb?`<img src="${esc(it.thumb)}" alt="">`:'<span class="ph"></span>'}<span><b>${esc(it.name)}</b><small>${esc([it.note||it.distillery,it.abv?it.abv+' %':'',it.volume?it.volume+' ml':'',it.barcode,it.src].filter(Boolean).join(' · '))}</small></span></button>`).join('');
     $$('.res',el).forEach(b=>b.onclick=()=>onPick(items[b.dataset.i]));
+    return items;
   }catch(e){el.innerHTML=`<div class="note bad"><b>Suche nicht erreichbar.</b> ${esc(e.message)}. Prüfe deine Verbindung oder trage die Daten von Hand ein.<div class="row" style="margin-top:8px"><button class="btn" data-retry>Nochmals versuchen</button></div></div>`;$('[data-retry]',el).onclick=()=>lookupInto(el,q,onPick)}
 }
 function priceBox(d,{getName,getCode,getBrand,onApply}){
@@ -784,6 +924,7 @@ function fillGrid(){
 }
 function openBottle(id,pre,opts){
   const isNew=!id;
+  if(isNew)loadBD();
   const b=id?structuredClone(D.bottles.find(x=>x.id===id)):Object.assign({id:uid(),name:'',distillery:'',age:null,abv:null,volume:700,barcode:'',image:'',fill:100,price:null,rating:null,notes:'',market:null,region:'',cask:'',bottler:'',bought:'',shop:'',opened:false,added:Date.now()},pre||{});
   const d=modal(`<div class="mhead"><h2>${isNew?'Flasche erfassen':esc(b.name)}</h2><button class="x" data-close aria-label="Schliessen">✕</button></div>
   <div class="box"><label style="margin:0">Online abgleichen</label><div class="row"><input name="q" placeholder="Name oder Barcode (EAN)" enterkeyhint="search" style="min-width:0"><button class="btn" data-a="search">Suchen</button><button class="btn" data-a="scan" title="Barcode scannen">Scannen</button></div><div class="results" data-r></div></div>
@@ -819,7 +960,7 @@ function openBottle(id,pre,opts){
     img=await cacheImage(it.image)||img;src0=img;pic();$('[data-r]',d).innerHTML='<p class="ok sm">Daten übernommen. Prüfe sie kurz und ergänze Preis und Note.</p>';
     f('name').dispatchEvent(new Event('input',{bubbles:true}));
   };
-  const search=()=>lookupInto($('[data-r]',d),f('q').value,pick);
+  const search=async()=>{const q=f('q').value.trim();await lookupInto($('[data-r]',d),q,pick);if(/^\d{8,14}$/.test(q)&&!f('barcode').value.trim()){f('barcode').value=q;dirty=true}};
   f('q').addEventListener('keydown',e=>{if(e.key==='Enter')search()});
   priceBox(d,{getName:()=>f('name').value,getCode:()=>f('barcode').value.trim(),getBrand:()=>f('distillery').value,onApply:p=>{f('mprice').value=p}});
   d.addEventListener('click',async e=>{
@@ -843,8 +984,12 @@ function openBottle(id,pre,opts){
 }
 
 /* ============ Version und Änderungsprotokoll ============ */
-const APP_VERSION='1.9.0';
+const APP_VERSION='1.10.0';
 const CHANGELOG=[
+  {v:'1.10.0',d:'2026-10-10',t:[
+    'Barcode-Scanner: viel genauere Erkennung, auch auf dem iPhone (neue Erkennungs-Engine). Fehlerhafte Lesungen werden aussortiert, ein Code gilt erst nach zwei gleichen Treffern. Licht und Zoom, wo das Gerät es kann.',
+    'Suche: findet Barcodes auch in abweichender Schreibweise (UPC/EAN), ignoriert Zusätze wie «Jahre» oder «40 %» und zeigt die besten Treffer zuerst.',
+    'Ein unbekannter Barcode bleibt im Formular stehen. So landet die Flasche nach dem Erfassen in der gemeinsamen Datenbank.']},
   {v:'1.9.0',d:'2026-10-10',t:[
     'Gemeinsame Whisky-Datenbank: Barcodes, die Nutzer erfassen, stehen allen zur Verfügung. Scan und Suche finden sie zuerst. Das Mitmachen ist freiwillig und im Tab Konto einstellbar.',
     'Flaschen von Freunden lassen sich mit einem Tipp in die eigene Sammlung übernehmen.']},
@@ -1098,7 +1243,7 @@ function thumbData(src,max=160){
 async function contribute(w){
   try{
     if(!ME||D.settings.catalog!==true||!w||!w.name)return false;
-    const bc=String(w.barcode||'').replace(/\D/g,'');
+    const bc=canonGtin(w.barcode);
     if(!/^\d{8,14}$/.test(bc)||CATSEEN.has(bc))return false;
     CATSEEN.add(bc);
     const ref=doc(db,'catalog',bc);
@@ -1228,6 +1373,7 @@ function rTast(v){
   if(UI.sessionId&&!D.sessions.find(s=>s.id===UI.sessionId))UI.sessionId=null;
   if(!UI.sessionId&&ses[0])UI.sessionId=ses[0].id;
   const cur=D.sessions.find(s=>s.id===UI.sessionId);
+  if(cur)loadBD();
   let html=`<h2 class="ptitle">Degustationen</h2>${inviteBanners()}<div class="tools"><select id="ses" ${ses.length?'':'disabled'} style="flex:1 1 200px">${ses.map(s=>`<option value="${s.id}" ${s.id===UI.sessionId?'selected':''}>${esc(s.name)} – ${fmtDate(s.date)}</option>`).join('')||'<option>Noch keine Degustation</option>'}</select><button class="btn pri" id="newses">+ Neue Degustation</button>${cur?'<button class="btn ghost danger" id="delses">Löschen</button>':''}</div><div class="tools" style="margin-top:-8px">${cur?'<button class="btn" id="sheet">Liste scannen</button><button class="btn" id="share">Teilen</button>':''}<button class="btn" id="join">Beitreten</button></div>${cur?.groupId?`<p class="muted sm" style="margin:-8px 0 16px">${cur.host?'Du teilst diese Degustation.':'Gemeinsam mit '+esc(cur.hostName||'einem Freund')+'.'}</p>`:''}`;
   if(!cur){v.innerHTML=html+'<div class="empty"><b>Starte eine Degustation</b>Lege einen Abend an, such die Whiskys per Name oder Barcode und bewerte jeden. Am Ende siehst du, was dir geschmeckt hat.</div>';bindSes();return}
   html+=`<div class="box" style="margin-bottom:16px"><label style="margin:0">Whisky zur Degustation hinzufügen</label><div class="row"><input id="tq" placeholder="Name oder Barcode (Sammlung & online)"><button class="btn" id="tgo">Suchen</button><button class="btn" id="tscan" title="Barcode scannen">Scannen</button></div><div class="results" id="tres"></div></div>`;
@@ -1345,6 +1491,7 @@ function rBuy(v){
 }
 function openWish(id){
   const isNew=!id;
+  if(isNew)loadBD();
   const w=id?structuredClone(D.wishlist.find(x=>x.id===id)):{id:uid(),name:'',distillery:'',barcode:'',image:'',note:'',target:null,seen:null,prio:'normal',added:Date.now()};
   const d=modal(`<div class="mhead"><h2>${isNew?'Wunsch hinzufügen':esc(w.name)}</h2><button class="x" data-close aria-label="Schliessen">✕</button></div>
   <div class="box"><label style="margin:0">Online suchen</label><div class="row"><input name="q" placeholder="Name oder Barcode (EAN)" enterkeyhint="search" style="min-width:0"><button class="btn" data-a="search">Suchen</button><button class="btn" data-a="scan" title="Barcode scannen">Scannen</button></div><div class="results" data-r></div></div>
@@ -1365,7 +1512,7 @@ function openWish(id){
     $('[data-r]',d).innerHTML='<p class="muted">Übernommen, Bild wird geladen …</p>';
     img=await cacheImage(it.image)||img;pic();links();$('[data-r]',d).innerHTML='<p class="ok sm">Daten übernommen.</p>';
   };
-  const search=()=>lookupInto($('[data-r]',d),f('q').value,pick);
+  const search=async()=>{const q=f('q').value.trim();await lookupInto($('[data-r]',d),q,pick);if(/^\d{8,14}$/.test(q)&&!f('barcode').value.trim())f('barcode').value=q};
   f('q').addEventListener('keydown',e=>{if(e.key==='Enter')search()});
   const collect=()=>Object.assign(w,{name:f('name').value.trim(),distillery:f('distillery').value.trim(),barcode:f('barcode').value.trim(),prio:f('prio').value,target:num(f('target').value),seen:num(f('seen').value),note:f('note').value.trim(),image:img});
   d.addEventListener('click',async e=>{
