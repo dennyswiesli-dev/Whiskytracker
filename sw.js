@@ -1,7 +1,7 @@
 /* Whisky Vault: einfacher Service Worker.
    Netzwerk zuerst, damit Updates sofort ankommen. Nur wenn man offline ist, kommt die App aus dem Zwischenspeicher.
    Datenabfragen (Firestore, Anmeldung, Online-Suche) laufen immer direkt ueber das Netzwerk. */
-const CACHE = 'whisky-vault-v1';
+const CACHE = 'whisky-vault-v2';
 const SHELL = ['./', 'index.html', 'manifest.webmanifest', 'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png'];
 const HOSTS = ['www.gstatic.com', 'fonts.googleapis.com', 'fonts.gstatic.com', 'cdn.jsdelivr.net'];
 
