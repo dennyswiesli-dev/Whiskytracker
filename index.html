@@ -304,6 +304,8 @@ function put(kind,o){
   upsert(kind,o);const u=ME.uid;
   setDoc(doc(db,'users',u,kind,o.id),o).catch(fail);
   if(kind==='bottles')setDoc(doc(db,'profiles',u,'shared',o.id),PUB(o)).catch(fail);
+  if(kind==='bottles'||kind==='wishlist')contribute(o);
+  if(kind==='tastings'&&o.whisky?.barcode)contribute(o.whisky);
   if(isNewB&&PROFILE?.share!==false)setDoc(doc(db,'profiles',u,'activity',uid()),{type:'bottle',name:o.name,ts:Date.now()}).catch(()=>{});
   if(kind==='tastings'){const hs=hostSession(o.sessionId);if(hs)setDoc(doc(db,'groups',hs.groupId,'whiskies',o.id),GW(o)).catch(failG)}
   sched();
@@ -350,7 +352,7 @@ async function ensureProfile(){
 function startListeners(){
   const u=ME.uid,L=(q,fn)=>unsubs.push(onSnapshot(q,fn,e=>{console.error(e);toast('Sync-Fehler: '+(e.code||e.message))}));
   L(doc(db,'profiles',u),s=>{PROFILE=s.data()||null;sched()});
-  L(doc(db,'users',u),s=>{D.settings={currency:'CHF',...(s.data()?.settings||{})};sched()});
+  L(doc(db,'users',u),s=>{D.settings={currency:'CHF',...(s.data()?.settings||{})};LOADED.u=true;sched()});
   L(collection(db,'users',u,'bottles'),s=>{D.bottles=s.docs.map(d=>d.data());UI.loading=false;sched()});
   L(collection(db,'users',u,'sessions'),s=>{D.sessions=s.docs.map(d=>d.data());LOADED.s=true;watchGroups();sched()});
   L(collection(db,'users',u,'tastings'),s=>{D.tastings=s.docs.map(d=>d.data());LOADED.t=true;sched()});
@@ -432,7 +434,7 @@ async function wikiSearch(q){
   return (j.search||[]).filter(e=>/whisk|distill|brenner|destill|spirit|bourbon|scotch|rum\b|brand/i.test(e.description||'')).map(e=>({name:e.label,distillery:e.label,barcode:'',image:'',thumb:'',abv:null,volume:null,src:'Wikidata',note:e.description||''}));
 }
 async function codeLookup(code){
-  const rs=await Promise.allSettled([offByCode(code),upcByCode(code)]);
+  const rs=await Promise.allSettled([catByCode(code),offByCode(code),upcByCode(code)]);
   const hit=rs.map(r=>r.value).find(Boolean);
   if(hit)return[hit];
   if(rs.every(r=>r.status==='rejected'))throw rs[0].reason;
@@ -459,7 +461,8 @@ async function offSearch(q){
 }
 async function searchAll(q){
   const variants=queryVariants(q.replace(/[()"\[\]{}:]/g,' ').replace(/\s+/g,' ').trim());
-  const rs=await Promise.allSettled([offSearch(q),upcSearch(variants[Math.min(1,variants.length-1)]),wikiSearch(variants[Math.min(1,variants.length-1)])]);
+  const v1=variants[Math.min(1,variants.length-1)];
+  const rs=await Promise.allSettled([catSearch(variants[0]),v1!==variants[0]?catSearch(v1):Promise.resolve([]),offSearch(q),upcSearch(v1),wikiSearch(v1)]);
   if(rs.every(r=>r.status==='rejected'))throw rs[0].reason;
   return dedupe(rs.flatMap(r=>r.value||[]));
 }
@@ -810,6 +813,8 @@ function openBottle(id,pre,opts){
   const pick=async it=>{
     f('name').value=it.name;f('distillery').value=it.distillery||f('distillery').value;f('barcode').value=it.barcode||'';
     if(it.abv)f('abv').value=it.abv;if(it.volume)f('volume').value=it.volume;
+    if(it.age&&!f('age').value)f('age').value=it.age;
+    ['region','cask','bottler'].forEach(k=>{if(it[k]&&!f(k).value)f(k).value=it[k]});
     $('[data-r]',d).innerHTML='<p class="muted">Übernommen, Bild wird geladen …</p>';
     img=await cacheImage(it.image)||img;src0=img;pic();$('[data-r]',d).innerHTML='<p class="ok sm">Daten übernommen. Prüfe sie kurz und ergänze Preis und Note.</p>';
     f('name').dispatchEvent(new Event('input',{bubbles:true}));
@@ -838,8 +843,11 @@ function openBottle(id,pre,opts){
 }
 
 /* ============ Version und Änderungsprotokoll ============ */
-const APP_VERSION='1.8.1';
+const APP_VERSION='1.9.0';
 const CHANGELOG=[
+  {v:'1.9.0',d:'2026-10-10',t:[
+    'Gemeinsame Whisky-Datenbank: Barcodes, die Nutzer erfassen, stehen allen zur Verfügung. Scan und Suche finden sie zuerst. Das Mitmachen ist freiwillig und im Tab Konto einstellbar.',
+    'Flaschen von Freunden lassen sich mit einem Tipp in die eigene Sammlung übernehmen.']},
   {v:'1.8.1',d:'2026-10-10',t:[
     'Systemmeldungen: Im Tab Konto lassen sich Meldungen auch als Systemmeldung erlauben. Sie erscheinen, solange die App im Hintergrund läuft.']},
   {v:'1.8.0',d:'2026-10-10',t:[
@@ -900,8 +908,8 @@ function genGid(){const A='ABCDEFGHJKMNPQRSTUVWXYZ23456789';return[...crypto.get
 const groupLink=gid=>location.origin+location.pathname+'?join='+gid;
 const parseJoin=t=>{t=String(t||'').trim();try{const j=new URL(t).searchParams.get('join');if(j&&/^[A-Za-z0-9]{12,40}$/.test(j))return j}catch{}return /^[A-Za-z0-9]{12,40}$/.test(t)?t:''};
 let qrP;const loadQR=()=>qrP??=new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js';s.onload=res;s.onerror=()=>{qrP=null;rej(new Error('QR-Code konnte nicht erstellt werden'))};document.head.appendChild(s)});
-let GSUB=new Map();const LOADED={s:false,t:false},GINIT=new Set();
-function stopGroupWatch(){GSUB.forEach(u=>u());GSUB=new Map();GINIT.clear();LOADED.s=false;LOADED.t=false}
+let GSUB=new Map();const LOADED={s:false,t:false,u:false},GINIT=new Set();
+function stopGroupWatch(){GSUB.forEach(u=>u());GSUB=new Map();GINIT.clear();LOADED.s=false;LOADED.t=false;LOADED.u=false}
 function watchGroups(){
   const want=new Set(D.sessions.filter(s=>s.groupId&&!s.host).map(s=>s.groupId));
   for(const [gid,un] of GSUB)if(!want.has(gid)){un();GSUB.delete(gid)}
@@ -1073,6 +1081,58 @@ function openSheetScan(){
     toast(added.length?`${added.length} Whisky${added.length>1?'s':''} hinzugefügt`:'Alle Whiskys waren schon in der Degustation');
     if(enrich&&added.length)setTimeout(()=>enrichTastings(added),1200);
   };
+}
+
+/* ============ Gemeinsame Whisky-Datenbank (Katalog) ============ */
+const tokenKeys=(...parts)=>[...new Set(parts.join(' ').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').split(/[^a-z0-9]+/).filter(t=>t.length>=2))].slice(0,14);
+const CATSEEN=new Set();
+function thumbData(src,max=160){
+  return new Promise(res=>{
+    if(!src||!String(src).startsWith('data:'))return res('');
+    const img=new Image();
+    img.onload=()=>{const k=Math.min(1,max/Math.max(img.width,img.height)),c=document.createElement('canvas');c.width=Math.max(1,Math.round(img.width*k));c.height=Math.max(1,Math.round(img.height*k));c.getContext('2d').drawImage(img,0,0,c.width,c.height);res(c.toDataURL('image/jpeg',.6))};
+    img.onerror=()=>res('');img.src=src;
+  });
+}
+/* Trägt ein Produkt in die gemeinsame Datenbank ein (nur Produktdaten, nie Preise, Noten oder Notizen) */
+async function contribute(w){
+  try{
+    if(!ME||D.settings.catalog!==true||!w||!w.name)return false;
+    const bc=String(w.barcode||'').replace(/\D/g,'');
+    if(!/^\d{8,14}$/.test(bc)||CATSEEN.has(bc))return false;
+    CATSEEN.add(bc);
+    const ref=doc(db,'catalog',bc);
+    if((await getDoc(ref)).exists())return false;
+    await setDoc(ref,{name:String(w.name).trim().slice(0,120),distillery:String(w.distillery||'').trim().slice(0,80),barcode:bc,abv:w.abv??null,volume:w.volume??null,age:w.age??null,region:String(w.region||'').slice(0,60),cask:String(w.cask||'').slice(0,60),bottler:String(w.bottler||'').slice(0,60),image:await thumbData(w.image),tk:tokenKeys(w.name,w.distillery),created:Date.now()});
+    return true;
+  }catch(e){console.warn('Katalog',e.code||e.message);return false}
+}
+async function contributeAll(){
+  let n=0;
+  for(const b of D.bottles)if(await contribute(b))n++;
+  return n;
+}
+const catItem=d=>({name:d.name,distillery:d.distillery||'',barcode:String(d.barcode||''),image:d.image||'',thumb:d.image||'',abv:d.abv??null,volume:d.volume??null,age:d.age??null,region:d.region||'',cask:d.cask||'',bottler:d.bottler||'',src:'Whisky Vault'});
+async function catByCode(code){const s=await getDoc(doc(db,'catalog',code));return s.exists()?catItem(s.data()):null}
+async function catSearch(q){
+  const toks=tokenKeys(q);if(!toks.length)return[];
+  const lead=toks.slice().sort((a,b)=>b.length-a.length)[0];
+  const s=await getDocs(query(collection(db,'catalog'),where('tk','array-contains',lead),limit(25)));
+  return s.docs.map(d=>d.data()).filter(d=>toks.every(t=>(d.tk||[]).some(k=>k.includes(t)))).map(catItem);
+}
+function whenIdle(fn,max=80){
+  let n=0;
+  const wait=()=>{if(!ME||++n>max)return;if(LOADED.s&&LOADED.t&&LOADED.u&&!document.querySelector('dialog[open]'))fn();else setTimeout(wait,300)};
+  wait();
+}
+function maybeCatalogConsent(){
+  if(!ME||D.settings.catalog!==undefined||UI.catAsked)return;UI.catAsked=true;
+  const d=modal(`<div class="mhead"><h2>Gemeinsame Whisky-Datenbank</h2><button class="x" data-close aria-label="Schliessen">✕</button></div>
+  <p style="margin:0">Whisky Vault baut eine gemeinsame Datenbank auf, damit Flaschen per Barcode schneller gefunden werden. Darf die App dafür <b>Name, Marke, Barcode, Alkoholgehalt, Inhalt und ein kleines Bild</b> deiner Flaschen mit Barcode teilen?</p>
+  <p class="muted sm" style="margin:0">Preise, Noten, Notizen und deine Sammlung bleiben privat. Die Einträge sehen alle angemeldeten Nutzer, ohne Hinweis darauf, von wem sie stammen. Du kannst das jederzeit im Tab Konto ändern.</p>
+  <div class="row sb"><button class="btn ghost" data-no>Nein danke</button><button class="btn pri" data-yes>Ja, teilen</button></div>`);
+  $('[data-no]',d).onclick=()=>{D.settings.catalog=false;saveSettings();d.close()};
+  $('[data-yes]',d).onclick=async()=>{D.settings.catalog=true;saveSettings();d.close();const n=await contributeAll();toast(n?`Danke! ${n} Flasche${n>1?'n':''} beigetragen.`:'Danke fürs Mitmachen!')};
 }
 
 /* ============ Benachrichtigungen ============ */
@@ -1400,7 +1460,8 @@ function friendBottle(b,owner){
   <div class="imgrow"><div class="pic">${b.image?`<img src="${esc(b.image)}" alt="">`:PH('Foto')}<div class="gauge"><i style="height:${b.fill}%"></i></div></div><div class="stack"><span class="muted">${esc([b.distillery,b.age?b.age+' Jahre':'',b.abv?b.abv+' %':'',b.volume?b.volume+' ml':'',b.region,b.cask,b.bottler].filter(Boolean).join(' · '))}</span><span>Füllstand: <b>${b.fill} %</b></span><span>Note von ${esc(owner||'Freund')}: <b style="color:var(--copper2)">${b.rating??'–'}</b></span>${iHave(b)?'<span class="pill ja">hast du auch</span>':''}</div></div>
   ${b.notes?`<div class="box"><label style="margin:0">Notizen</label><div style="white-space:pre-wrap">${esc(b.notes)}</div></div>`:''}
   <div class="box"><label style="margin:0">Preis prüfen</label><div class="links">${priceLinks(b.name,b.barcode,b.distillery)}</div></div>
-  ${iHave(b)?'':'<div><button class="btn" data-wish>Auf meine Wunschliste</button></div>'}`);
+  ${iHave(b)?'':'<div class="row wrap"><button class="btn pri" data-addcoll>In meine Sammlung</button><button class="btn" data-wish>Auf meine Wunschliste</button></div>'}`);
+  $('[data-addcoll]',d)?.addEventListener('click',()=>{d.close();UI.friend=null;UI.tab='sammlung';render();openBottle(null,{name:b.name,distillery:b.distillery||'',age:b.age??null,abv:b.abv??null,volume:b.volume??700,barcode:b.barcode||'',image:b.image||'',region:b.region||'',cask:b.cask||'',bottler:b.bottler||''})});
   $('[data-wish]',d)?.addEventListener('click',()=>{
     if(D.wishlist.some(x=>(b.barcode&&x.barcode===b.barcode)||x.name.trim().toLowerCase()===b.name.trim().toLowerCase())){toast('Steht schon auf deiner Wunschliste');return}
     put('wishlist',{id:uid(),name:b.name,distillery:b.distillery||'',barcode:b.barcode||'',image:b.image||'',note:'Gesehen bei '+(owner||'einem Freund'),target:null,seen:null,prio:'normal',added:Date.now()});toast('Auf deiner Wunschliste');d.close();
@@ -1422,11 +1483,17 @@ function rAccount(v){
     <div class="row wrap"><button class="btn" id="sysbtn">${sysOn()?'Systemmeldungen ausschalten':'Systemmeldungen erlauben'}</button><span class="sm ${sysSupported()&&Notification.permission==='denied'?'err':'muted'}" id="sysst">${sysOn()?'Eingeschaltet':sysSupported()&&Notification.permission==='denied'?'Im Browser blockiert':''}</span></div>
     <p class="sm muted" style="margin:0">Systemmeldungen erscheinen, solange die App im Hintergrund noch läuft. Ist sie ganz geschlossen, kommt nichts. Auf dem iPhone braucht es die installierte App (Teilen → Zum Home-Bildschirm).</p>
   </div>
+  <div class="box"><label style="margin:0">Gemeinsame Whisky-Datenbank</label>
+    <label class="chk"><input type="checkbox" id="catopt" ${D.settings.catalog===true?'checked':''}> Meine Flaschen mit Barcode beitragen</label>
+    <p class="sm muted" style="margin:0">Name, Marke, Barcode, Alkoholgehalt, Inhalt und ein kleines Bild. Preise, Noten und Notizen bleiben privat. Die Einträge helfen allen beim Suchen und Scannen.</p>
+    ${D.settings.catalog===true?`<div class="row wrap"><button class="btn" id="catall">Alle meine Barcodes jetzt beitragen (${D.bottles.filter(b=>/^\d{8,14}$/.test(String(b.barcode||'').replace(/\D/g,''))).length})</button><span class="sm muted" id="catst"></span></div>`:''}</div>
   <div class="box"><label style="margin:0">Version</label><div>Whisky Vault ${APP_VERSION}</div><div><button class="btn" id="clog">Änderungsprotokoll anzeigen</button></div></div>
   <div class="box"><label style="margin:0">Quellen</label><p class="sm muted" style="margin:0">Produktdaten und Bilder: Open Food Facts, UPCitemdb und Wikidata (nicht jede Flasche ist vorhanden). Preise: Open Prices (Community-Meldungen) und Vergleichslinks zu Preisportalen.</p></div>
   <div class="box"><button class="btn danger" id="wipe">Alle meine Whisky-Daten löschen</button></div></div>`;
   $('#out').onclick=()=>signOut(auth);
   $('#clog').onclick=()=>showChangelog(APP_VERSION);
+  $('#catopt').onchange=async e=>{D.settings.catalog=e.target.checked;saveSettings();render();if(e.target.checked){const n=await contributeAll();if(n)toast(`Danke! ${n} Flasche${n>1?'n':''} beigetragen.`)}};
+  $('#catall')?.addEventListener('click',async e=>{e.target.disabled=true;CATSEEN.clear();const n=await contributeAll();$('#catst').textContent=n?`${n} neu beigetragen`:'Alles ist schon in der Datenbank.';e.target.disabled=false});
   $('#sysbtn').onclick=async e=>{
     const b=e.target,st=$('#sysst');b.disabled=true;
     try{if(sysOn()){disableSys();toast('Systemmeldungen ausgeschaltet')}else{await enableSys();toast('Systemmeldungen eingeschaltet')}render()}
@@ -1459,7 +1526,7 @@ $('#tabs').addEventListener('click',e=>{const b=e.target.closest('button');if(b)
 
 if(!CONFIGURED){$('#tabs').hidden=true;renderAuth()}
 else onAuthStateChanged(auth,async u=>{
-  stopListeners();ME=u;PROFILE=null;D=blankD();FR=blankFR();UI.friend=null;UI.loading=true;LEGACY=null;
+  stopListeners();ME=u;PROFILE=null;D=blankD();FR=blankFR();UI.friend=null;UI.loading=true;LEGACY=null;UI.catAsked=false;CATSEEN.clear();
   $('#tabs').hidden=!u;
   $('#chip').textContent=u?(u.displayName||u.email||''):'';
   updateBell();
@@ -1469,6 +1536,7 @@ else onAuthStateChanged(auth,async u=>{
   await ensureProfile();
   startListeners();
   checkJoin();
+  whenIdle(maybeCatalogConsent);
   try{const l=await LocalDB.get('data');if(l&&Array.isArray(l.bottles)&&l.bottles.length){LEGACY=l;toast('Lokale Daten der alten Version gefunden – siehe Tab «Konto».')}}catch{}
 });
 </script>
