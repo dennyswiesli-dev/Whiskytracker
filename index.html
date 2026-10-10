@@ -838,8 +838,10 @@ function openBottle(id,pre,opts){
 }
 
 /* ============ Version und Änderungsprotokoll ============ */
-const APP_VERSION='1.8.0';
+const APP_VERSION='1.8.1';
 const CHANGELOG=[
+  {v:'1.8.1',d:'2026-10-10',t:[
+    'Systemmeldungen: Im Tab Konto lassen sich Meldungen auch als Systemmeldung erlauben. Sie erscheinen, solange die App im Hintergrund läuft.']},
   {v:'1.8.0',d:'2026-10-10',t:[
     'Benachrichtigungen: Die Glocke oben rechts zeigt Freundschaftsanfragen, Einladungen und neue Whiskys deiner Freunde.',
     'Freunde direkt in eine gemeinsame Degustation einladen (im Fenster «Teilen»).',
@@ -914,7 +916,7 @@ function applyGroup(gid,list,notify){
     if((s.skip||[]).includes(w.id)||D.tastings.some(t=>t.id===w.id))return;
     put('tastings',{id:w.id,sessionId:s.id,bottleId:null,whisky:{name:w.name||'',distillery:w.distillery||'',barcode:w.barcode||'',image:'',abv:w.abv??null,volume:w.volume??null},score:null,tags:[],nose:'',palate:'',finish:'',notes:'',buy:'',price:null,priceDate:null,created:w.order||Date.now(),fromGroup:true});created.push(w);
   });
-  if(notify)created.forEach(w=>fireNote('groupNew','Neuer Whisky',`«${w.name}» in «${s.name}»`));
+  if(notify)created.forEach(w=>fireNote('groupNew','Neuer Whisky',`«${w.name}» in «${s.name}»`,'grp:'+w.id));
 }
 async function shareSession(s){
   try{
@@ -1079,13 +1081,34 @@ const nset=k=>D.settings.notify?.[k]??true;
 const KNOWN=new Set(),INIT={};
 const seenTs=()=>{try{let v=Number(localStorage.getItem('wv-seen-ts'));if(!v){v=Date.now();localStorage.setItem('wv-seen-ts',String(v))}return v}catch{return 0}};
 const markSeen=()=>{try{localStorage.setItem('wv-seen-ts',String(Date.now()))}catch{}};
-function fireNote(kind,title,body){
+/* Systemmeldungen: nur solange die App im Hintergrund noch läuft, und nur nach ausdrücklicher Erlaubnis */
+const sysSupported=()=>'Notification' in window;
+const sysOn=()=>{try{return sysSupported()&&localStorage.getItem('wv-sysnote')==='1'&&Notification.permission==='granted'}catch{return false}};
+async function showSys(title,body,tag){
+  const o={body,tag,icon:'icons/icon-192.png',badge:'icons/favicon-32.png'};
+  try{
+    const reg=navigator.serviceWorker&&await Promise.race([navigator.serviceWorker.ready,new Promise(r=>setTimeout(()=>r(null),1500))]);
+    if(reg&&reg.showNotification){await reg.showNotification(title,o);return}
+  }catch{}
+  try{new Notification(title,o)}catch{}
+}
+async function enableSys(){
+  if(!sysSupported())throw new Error(/iPhone|iPad|iPod/.test(navigator.userAgent)?'Auf dem iPhone geht das nur in der installierten App: Teilen → Zum Home-Bildschirm.':'Dieser Browser unterstützt keine Systemmeldungen.');
+  let perm=Notification.permission;
+  if(perm==='default')perm=await Notification.requestPermission();
+  if(perm!=='granted')throw new Error('Die Erlaubnis fehlt. Du kannst sie in den Browser- oder Systemeinstellungen für diese Seite erteilen.');
+  try{localStorage.setItem('wv-sysnote','1')}catch{}
+  showSys('Whisky Vault','Systemmeldungen sind eingeschaltet.','test');
+}
+const disableSys=()=>{try{localStorage.removeItem('wv-sysnote')}catch{}};
+function fireNote(kind,title,body,tag){
   if(!nset(kind))return;
   toast(title+': '+body);
+  if(document.hidden&&sysOn())showSys(title,body,tag);
 }
 function noteNew(src,list,make,skip){
   const first=!INIT[src];INIT[src]=true;
-  list.forEach(x=>{const m=make(x);if(KNOWN.has(m.tag))return;KNOWN.add(m.tag);if(!first&&!(skip&&skip(x)))fireNote(m.kind,m.title,m.body)});
+  list.forEach(x=>{const m=make(x);if(KNOWN.has(m.tag))return;KNOWN.add(m.tag);if(!first&&!(skip&&skip(x)))fireNote(m.kind,m.title,m.body,m.tag)});
 }
 let FACT=new Map();
 function stopActivityWatch(){FACT.forEach(h=>h.un());FACT=new Map();KNOWN.clear();for(const k of Object.keys(INIT))delete INIT[k]}
@@ -1097,7 +1120,7 @@ function watchActivity(){
     h.un=onSnapshot(query(collection(db,'profiles',id,'activity'),orderBy('ts','desc'),limit(10)),s=>{
       const list=s.docs.map(d=>({id:d.id,fid:id,...d.data()}));FR.activity[id]=list;
       const fresh=list.filter(a=>!KNOWN.has('act:'+a.id));list.forEach(a=>KNOWN.add('act:'+a.id));
-      if(h.init)fresh.filter(a=>a.ts>seenTs()).forEach(a=>fireNote('friendNew',FR.profiles[id]?.name||'Ein Freund',`hat «${a.name}» hinzugefügt.`));
+      if(h.init)fresh.filter(a=>a.ts>seenTs()).forEach(a=>fireNote('friendNew',FR.profiles[id]?.name||'Ein Freund',`hat «${a.name}» hinzugefügt.`,'act:'+a.id));
       h.init=true;sched();
     },()=>{FR.activity[id]=[]});
   }
@@ -1395,13 +1418,20 @@ function rAccount(v){
     <div class="row wrap"><button class="btn pri" id="exp">Backup exportieren (JSON)</button><button class="btn" id="imp">Backup importieren</button><button class="btn" id="csv">Sammlung als CSV</button><input type="file" id="impf" accept="application/json" hidden></div></div>
   <div class="box"><label style="margin:0">Benachrichtigungen</label>
     ${NOTIFY_KINDS.map(([k,t])=>`<label class="chk"><input type="checkbox" data-nk="${k}" ${nset(k)?'checked':''}> ${t}</label>`).join('')}
-    <p class="sm muted" style="margin:0">Die Glocke oben rechts zeigt neue Anfragen, Einladungen und Whiskys deiner Freunde. Meldungen erscheinen, solange die App offen ist.</p>
+    <p class="sm muted" style="margin:0">Die Glocke oben rechts zeigt neue Anfragen, Einladungen und Whiskys deiner Freunde.</p>
+    <div class="row wrap"><button class="btn" id="sysbtn">${sysOn()?'Systemmeldungen ausschalten':'Systemmeldungen erlauben'}</button><span class="sm ${sysSupported()&&Notification.permission==='denied'?'err':'muted'}" id="sysst">${sysOn()?'Eingeschaltet':sysSupported()&&Notification.permission==='denied'?'Im Browser blockiert':''}</span></div>
+    <p class="sm muted" style="margin:0">Systemmeldungen erscheinen, solange die App im Hintergrund noch läuft. Ist sie ganz geschlossen, kommt nichts. Auf dem iPhone braucht es die installierte App (Teilen → Zum Home-Bildschirm).</p>
   </div>
   <div class="box"><label style="margin:0">Version</label><div>Whisky Vault ${APP_VERSION}</div><div><button class="btn" id="clog">Änderungsprotokoll anzeigen</button></div></div>
   <div class="box"><label style="margin:0">Quellen</label><p class="sm muted" style="margin:0">Produktdaten und Bilder: Open Food Facts, UPCitemdb und Wikidata (nicht jede Flasche ist vorhanden). Preise: Open Prices (Community-Meldungen) und Vergleichslinks zu Preisportalen.</p></div>
   <div class="box"><button class="btn danger" id="wipe">Alle meine Whisky-Daten löschen</button></div></div>`;
   $('#out').onclick=()=>signOut(auth);
   $('#clog').onclick=()=>showChangelog(APP_VERSION);
+  $('#sysbtn').onclick=async e=>{
+    const b=e.target,st=$('#sysst');b.disabled=true;
+    try{if(sysOn()){disableSys();toast('Systemmeldungen ausgeschaltet')}else{await enableSys();toast('Systemmeldungen eingeschaltet')}render()}
+    catch(err){st.className='sm err';st.textContent=err.message||'Das hat nicht geklappt.';b.disabled=false}
+  };
   $$('[data-nk]',v).forEach(c=>c.onchange=()=>{D.settings.notify={...(D.settings.notify||{}),[c.dataset.nk]:c.checked};saveSettings();updateBell()});
   $('#cur').onchange=e=>{D.settings.currency=e.target.value;saveSettings();render()};
   $('#exp').onclick=()=>dl(`whisky-vault-${today()}.json`,JSON.stringify({bottles:D.bottles,sessions:D.sessions,tastings:D.tastings,wishlist:D.wishlist,settings:D.settings}),'application/json');

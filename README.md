@@ -56,7 +56,7 @@ Whisky Vault beantwortet das in Sekunden. Flasche scannen oder Namen eintippen, 
 - Freunde sehen Name, Bild, Füllstand, Note und Notizen.
 - **Preise, Degustationen und Kaufliste bleiben immer privat.**
 - Ein Schalter sperrt die Freigabe sofort.
-- **Benachrichtigungen:** Die Glocke zeigt Anfragen, Einladungen und neue Whiskys deiner Freunde. Jede Art lässt sich einzeln ausschalten.
+- **Benachrichtigungen:** Die Glocke zeigt Anfragen, Einladungen und neue Whiskys deiner Freunde. Jede Art lässt sich einzeln ausschalten. Optional auch als Systemmeldung, solange die App im Hintergrund läuft.
 - Freunde lassen sich direkt in eine gemeinsame Degustation einladen.
 
 ### Auf jedem Gerät
