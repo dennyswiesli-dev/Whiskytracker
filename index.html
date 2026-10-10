@@ -69,6 +69,13 @@ main{max-width:1120px;margin:0 auto;padding:28px 24px 96px}
 .row.wrap{flex-wrap:wrap}
 .row.sb{justify-content:space-between}
 .ptitle{margin:0 0 20px;font:400 1.8rem var(--serif)}
+.lrow{display:grid;grid-template-columns:1fr auto;gap:16px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line);cursor:pointer}
+.lrow:hover .lmain b{color:var(--copper2)}
+.lmain{min-width:0;display:flex;flex-direction:column;gap:2px}
+.lmain b{font:500 1.15rem var(--serif);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;transition:color .15s}
+.lmain span{font-size:13px;color:var(--mute);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lr{display:flex;flex-direction:column;align-items:flex-end;gap:2px;font:400 12px var(--mono);color:var(--mute);white-space:nowrap}
+.lr b{font:400 1.2rem var(--serif);color:var(--copper2)}
 .sub{font:400 11px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--mute);margin:28px 0 10px}
 .bars{display:flex;flex-direction:column}
 .bar{display:grid;grid-template-columns:minmax(84px,34%) 1fr auto;gap:12px;align-items:center;padding:5px 0}
@@ -275,7 +282,7 @@ const fail=e=>{console.error(e);toast('Speichern fehlgeschlagen: '+(e.code||e.me
 const blankD=()=>({bottles:[],sessions:[],tastings:[],wishlist:[],settings:{currency:'CHF'}});
 const blankFR=()=>({friends:[],incoming:[],outgoing:[],profiles:{}});
 let ME=null,PROFILE=null,D=blankD(),FR=blankFR(),LEGACY=null,unsubs=[],PENDING_NAME=null;
-let UI={tab:'sammlung',collView:'liste',sort:'name',filter:'alle',q:'',sessionId:null,kaufMode:'kauf',loading:true,friend:null,authMode:'login'};
+let UI={tab:'sammlung',collView:'liste',layout:(()=>{try{return localStorage.getItem('wv-layout')==='liste'?'liste':'karten'}catch{return 'karten'}})(),sort:'name',filter:'alle',q:'',sessionId:null,kaufMode:'kauf',loading:true,friend:null,authMode:'login'};
 let raf;const sched=()=>{cancelAnimationFrame(raf);raf=requestAnimationFrame(render)};
 
 /* ============ Datenzugriff (Firestore) ============ */
@@ -516,7 +523,7 @@ const loadH5=()=>h5??=new Promise((res,rej)=>{const s=document.createElement('sc
 async function scanBarcode(){
   try{await loadH5()}catch(e){alert(e.message);return null}
   return new Promise(resolve=>{
-    const d=modal(`<div class="mhead"><h2>Barcode scannen</h2><button class="x" data-close aria-label="Schliessen">✕</button></div><div id="reader" class="reader"></div><p class="muted sm" id="rmsg">Halte den Strichcode (EAN) ruhig und gut beleuchtet in den Rahmen.</p><div class="row"><button class="btn" id="mphoto">Foto vom Barcode</button><input type="file" accept="image/*" capture="environment" hidden id="mfile"></div><div class="row"><input id="mcode" placeholder="oder Nummer eintippen" inputmode="numeric"><button class="btn pri" id="mok">OK</button></div>`);
+    const d=modal(`<div class="mhead"><h2>Barcode scannen</h2><button class="x" data-close aria-label="Schliessen">✕</button></div><div id="reader" class="reader"></div><p class="muted sm" id="rmsg">Halte den Strichcode (EAN) ruhig und gut beleuchtet in den Rahmen.</p><div id="mcamrow" hidden><label>Kamera</label><select id="mcam"></select></div><div class="row"><button class="btn" id="mphoto">Foto vom Barcode</button><input type="file" accept="image/*" capture="environment" hidden id="mfile"></div><div class="row"><input id="mcode" placeholder="oder Nummer eintippen" inputmode="numeric"><button class="btn pri" id="mok">OK</button></div>`);
     let q,done=false;
     const finish=async v=>{if(done)return;done=true;try{await q?.stop()}catch{}try{q?.clear()}catch{}d.close();resolve(v)};
     d.addEventListener('close',()=>finish(null));
@@ -531,8 +538,39 @@ async function scanBarcode(){
       try{try{await q.stop()}catch{}const r=await q.scanFile(file,false);finish(r)}
       catch{$('#rmsg',d).innerHTML='<span class="err">Im Foto wurde kein Barcode erkannt. Näher ran, gerade fotografieren, oder Nummer eintippen.</span>'}
     };
-    q.start({facingMode:'environment'},{fps:15,qrbox:(w,h)=>({width:Math.floor(w*.9),height:Math.floor(Math.min(h,w)*.45)}),videoConstraints:{width:{ideal:1920},height:{ideal:1080},advanced:[{focusMode:'continuous'}]}},t=>finish(t),()=>{})
-      .catch(()=>{$('#reader',d).innerHTML='<p class="err" style="padding:12px">Kamera nicht verfügbar. Erlaube den Kamerazugriff, nutze „Foto vom Barcode“ oder tippe die Nummer ein.</p>'});
+    const sel=$('#mcam',d),camRow=$('#mcamrow',d);
+    const prefGet=()=>{try{return localStorage.getItem('wv-cam')||''}catch{return ''}};
+    const prefSet=v=>{try{localStorage.setItem('wv-cam',v)}catch{}};
+    const qrbox=(w,h)=>({width:Math.floor(w*.9),height:Math.floor(Math.min(h,w)*.45)});
+    /* Wichtig: Mit videoConstraints ignoriert die Bibliothek die Kamera-Angabe im ersten Argument.
+       Deshalb steht die Kamerawahl (Rückkamera) hier selbst in den Constraints. */
+    const attempts=id=>[...(id?[{deviceId:{exact:id}}]:[]),{facingMode:{exact:'environment'}},{facingMode:{ideal:'environment'}},{}]
+      .map(c=>({width:{ideal:1920},height:{ideal:1080},advanced:[{focusMode:'continuous'}],...c}));
+    const startCam=async id=>{
+      let last;
+      for(const vc of attempts(id)){
+        try{await q.start({facingMode:'environment'},{fps:15,qrbox,videoConstraints:vc},t=>finish(t),()=>{});return}
+        catch(e){last=e;try{await q.stop()}catch{}}
+      }
+      throw last;
+    };
+    const listCams=async()=>{
+      try{
+        const cams=await Html5Qrcode.getCameras();
+        if(cams.length<2)return;
+        let cur='';try{cur=q.getRunningTrackSettings().deviceId||''}catch{}
+        sel.innerHTML=cams.map((c,i)=>`<option value="${esc(c.id)}">${esc(c.label||'Kamera '+(i+1))}</option>`).join('');
+        if(cur)sel.value=cur;
+        camRow.hidden=false;
+      }catch{}
+    };
+    sel.onchange=async()=>{
+      prefSet(sel.value);$('#rmsg',d).textContent='Kamera wird gewechselt …';
+      try{await q.stop()}catch{}
+      try{await startCam(sel.value);$('#rmsg',d).textContent='Halte den Strichcode (EAN) ruhig und gut beleuchtet in den Rahmen.'}
+      catch{$('#rmsg',d).innerHTML='<span class="err">Diese Kamera lässt sich nicht starten. Wähle eine andere.</span>'}
+    };
+    startCam(prefGet()).then(listCams).catch(()=>{$('#reader',d).innerHTML='<p class="err" style="padding:12px">Kamera nicht verfügbar. Erlaube den Kamerazugriff, nutze „Foto vom Barcode“ oder tippe die Nummer ein.</p>'});
   });
 }
 async function lookupInto(el,q,onPick){
@@ -682,12 +720,14 @@ function rColl(v){
     <div class="stat"><span>Ø Note</span><b>${avg??'–'}</b></div></section>
   <div class="tools"><input id="q" type="search" placeholder="Sammlung durchsuchen" value="${esc(UI.q)}">
     <select id="sort"><option value="name">Name A–Z</option><option value="dist">Brennerei A–Z</option><option value="rating">Beste Note</option><option value="price">Teuerste</option><option value="fill">Fast leer zuerst</option><option value="new">Neueste</option></select>
-    <button class="btn pri" id="add">+ Flasche erfassen</button></div>
+    <button class="btn" id="lay" aria-label="Ansicht wechseln"></button><button class="btn pri" id="add">+ Flasche erfassen</button></div>
   <div class="chips" id="flt" style="margin-bottom:14px"></div><div id="grid"></div>`;
   $('#sort').value=UI.sort;
   $('#q').oninput=e=>{UI.q=e.target.value;fillGrid()};
   $('#sort').onchange=e=>{UI.sort=e.target.value;fillGrid()};
   bindCv();
+  const layBtn=()=>{$('#lay').textContent=UI.layout==='liste'?'Karten':'Liste'};layBtn();
+  $('#lay').onclick=()=>{UI.layout=UI.layout==='liste'?'karten':'liste';try{localStorage.setItem('wv-layout',UI.layout)}catch{}layBtn();fillGrid()};
   $('#add').onclick=()=>openBottle();
   $('#flt').onclick=e=>{const c=e.target.closest('[data-f]');if(c){UI.filter=c.dataset.f;fillGrid()}};
   fillGrid();
@@ -700,6 +740,12 @@ function fillGrid(){
   const list=base.filter(FILTERS[UI.filter][1]).sort(sorters[UI.sort]);
   const g=$('#grid');
   if(!list.length){g.className='';g.innerHTML=D.bottles.length?'<div class="empty">Keine Treffer.</div>':'<div class="empty"><b>Noch keine Flaschen</b>Tippe auf „+ Flasche erfassen“ und such deine erste Flasche über Name oder Barcode.</div>';return}
+  if(UI.layout==='liste'){
+    g.className='';
+    g.innerHTML=`<div class="rows">${list.map(b=>`<div class="lrow" tabindex="0" role="button" data-id="${b.id}"><div class="lmain"><b>${esc(b.name)}</b><span>${esc([b.distillery,meta(b)].filter(Boolean).join(' · '))}</span></div><div class="lr">${b.rating!=null?`<b>${b.rating}</b>`:''}<span>${esc(isOpen(b)?b.fill+' %':'ungeöffnet')}${b.price!=null?' · '+esc(money(b.price)):''}</span></div></div>`).join('')}</div>`;
+    $$('.lrow',g).forEach(c=>c.onclick=()=>openBottle(c.dataset.id));
+    return;
+  }
   g.className='grid';
   g.innerHTML=list.map(b=>{
     const d=(b.market?.price!=null&&b.price!=null)?b.market.price-b.price:null;
@@ -1030,7 +1076,7 @@ function rAccount(v){
 function dl(name,text,type){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
 
 /* ============ Start ============ */
-addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.target.matches?.('.card[tabindex],.item[tabindex]')){e.preventDefault();e.target.click()}});
+addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.target.matches?.('.card[tabindex],.item[tabindex],.lrow[tabindex]')){e.preventDefault();e.target.click()}});
 function render(){
   const v=$('#view');
   if(!ME){return renderAuth()}

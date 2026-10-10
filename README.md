@@ -24,12 +24,13 @@ Whisky Vault beantwortet das in Sekunden. Flasche scannen oder Namen eintippen, 
 - **Status** geöffnet oder ungeöffnet, dazu der **Füllstand** als Regler, damit du siehst, was fast leer ist.
 - Kaufdatum und Kaufort für dich privat festhalten.
 - Filter nach geöffnet, ungeöffnet, fast leer, ohne Note und ohne Marktpreis.
+- Ansicht als **Karten mit Bild** oder als **kompakte Liste ohne Bilder**, die App merkt sich deine Wahl.
 - Übersicht mit Anzahl Flaschen, Einstandswert, Marktwert und Durchschnittsnote.
 - Suchen, nach Name, Brennerei, Note, Preis, Füllstand oder Datum sortieren, **Backup als JSON** oder **CSV** exportieren.
 - **Statistik:** Inhalt und Restmenge, Top-Brennereien, Regionen, Geschmacksprofil, Ausgaben pro Jahr, beste Bewertungen sowie grösster Wertzuwachs und -verlust.
 
 ### Schnell erfassen
-- **Barcode scannen** mit der Handykamera, oder ein Foto vom Strichcode machen.
+- **Barcode scannen** mit der Rückkamera des Handys (bei mehreren Kameras wählbar), oder ein Foto vom Strichcode machen.
 - **Online-Abgleich** nach Name oder Barcode über mehrere Datenbanken. Treffer übernimmt die App samt Bild, Marke, Alkoholgehalt und Inhalt.
 - Schreibweisen wie «Glenmoray» und «Glen Moray» findet die Suche beide.
 - **Bild ausrichten:** verschieben und zoomen, bis das Etikett perfekt im Rahmen sitzt.
